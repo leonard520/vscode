@@ -29,4 +29,11 @@ export const Menus = {
 	NewSessionControl: new MenuId('NewSessions.SessionControlMenu'),
 	NewSessionRepositoryConfig: new MenuId('NewSessions.RepositoryConfigMenu'),
 	SessionWorkspaceManage: new MenuId('Sessions.SessionWorkspaceManage'),
+
+	// Work Items
+	WorkItemsViewTitle: new MenuId('WorkItemsViewTitle'),
+	WorkItemContextMenu: new MenuId('WorkItemContextMenu'),
+	WorkItemToolbar: new MenuId('WorkItemToolbar'),
+	WorkItemPriorityGroupToolbar: new MenuId('WorkItemPriorityGroupToolbar'),
+	SessionTabBarContext: new MenuId('SessionTabBarContext'),
 } as const;

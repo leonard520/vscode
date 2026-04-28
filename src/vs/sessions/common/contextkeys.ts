@@ -45,3 +45,14 @@ export const IsPhoneLayoutContext = new RawContextKey<boolean>('sessionsIsPhoneL
 export const KeyboardVisibleContext = new RawContextKey<boolean>('sessionsKeyboardVisible', false, localize('sessionsKeyboardVisible', "Whether the virtual keyboard is visible"));
 
 //#endregion
+
+//#region < --- Work Items --- >
+
+export const HasActiveWorkItemContext = new RawContextKey<boolean>('workItem.hasActive', false, localize('workItem.hasActive', "Whether a work item is currently selected"));
+export const ActiveWorkItemHasLinkedIssueContext = new RawContextKey<boolean>('workItem.hasLinkedIssue', false, localize('workItem.hasLinkedIssue', "Whether the active work item is linked to a GitHub Issue"));
+export const ActiveWorkItemHasWorkingDirectoryContext = new RawContextKey<boolean>('workItem.hasWorkingDirectory', false, localize('workItem.hasWorkingDirectory', "Whether the active work item has a working directory"));
+export const ActiveWorkItemStatusContext = new RawContextKey<string>('workItem.status', 'open', localize('workItem.status', "The status of the active work item (open or closed)"));
+export const ActiveWorkItemPriorityContext = new RawContextKey<string>('workItem.priority', 'backlog', localize('workItem.priority', "The priority of the active work item (focus, up-next, or backlog)"));
+export const ActiveWorkItemSessionCountContext = new RawContextKey<number>('workItem.sessionCount', 0, localize('workItem.sessionCount', "The number of sessions in the active work item"));
+
+//#endregion

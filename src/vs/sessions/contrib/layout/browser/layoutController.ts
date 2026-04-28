@@ -16,6 +16,7 @@ import { IViewsService } from '../../../../workbench/services/views/common/views
 import { CHANGES_VIEW_ID } from '../../changes/common/changes.js';
 import { SESSIONS_FILES_CONTAINER_ID } from '../../files/browser/files.contribution.js';
 import { SessionStatus } from '../../../services/sessions/common/session.js';
+import { IWorkItemService } from '../../../services/workItems/common/workItemService.js';
 
 interface IPendingTurnState {
 	readonly hadChangesBeforeSend: boolean;
@@ -32,6 +33,7 @@ export class LayoutController extends Disposable {
 	constructor(
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 		@ISessionsManagementService private readonly _sessionManagementService: ISessionsManagementService,
+		@IWorkItemService private readonly _workItemService: IWorkItemService,
 		@IChatService private readonly _chatService: IChatService,
 		@IViewsService private readonly _viewsService: IViewsService,
 	) {
@@ -62,7 +64,12 @@ export class LayoutController extends Disposable {
 
 		const activeSessionHasWorkspaceObs = derived<boolean>(reader => {
 			const activeSession = this._sessionManagementService.activeSession.read(reader);
-			return activeSession?.workspace.read(reader)?.repositories?.[0]?.uri !== undefined;
+			if (activeSession?.workspace.read(reader)?.repositories?.[0]?.uri !== undefined) {
+				return true;
+			}
+
+			const activeWorkItem = this._workItemService.activeWorkItem.read(reader);
+			return activeWorkItem?.workingDirectory.read(reader) !== undefined;
 		});
 
 		// Switch between sessions — sync auxiliary bar (skip on mobile to avoid

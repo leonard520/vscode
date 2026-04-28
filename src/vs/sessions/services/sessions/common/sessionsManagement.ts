@@ -23,6 +23,11 @@ export interface ISessionsChangeEvent {
 	readonly changed: readonly ISession[];
 }
 
+export interface ISessionReplaceEvent {
+	readonly from: ISession;
+	readonly to: ISession;
+}
+
 /**
  * An active session extends {@link ISession} with the currently focused chat.
  */
@@ -66,6 +71,11 @@ export interface ISessionsManagementService {
 	 */
 	readonly onDidChangeSessions: Event<ISessionsChangeEvent>;
 
+	/**
+	 * Fires when a temporary session is atomically replaced by its committed session.
+	 */
+	readonly onDidReplaceSession: Event<ISessionReplaceEvent>;
+
 	// -- Active Session --
 
 	/**
@@ -88,7 +98,7 @@ export interface ISessionsManagementService {
 	 * Select an existing session as the active session.
 	 * Sets `isNewChatSession` context to false and opens the active chat belonging to the session.
 	 */
-	openSession(sessionResource: URI, options?: { preserveFocus?: boolean }): Promise<void>;
+	openSession(session: ISession | URI, options?: { preserveFocus?: boolean }): Promise<void>;
 
 	/**
 	 * Open a specific chat within a session.

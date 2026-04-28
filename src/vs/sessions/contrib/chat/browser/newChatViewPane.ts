@@ -6,7 +6,7 @@
 import './media/chatWidget.css';
 import * as dom from '../../../../base/browser/dom.js';
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
-import { derived } from '../../../../base/common/observable.js';
+import { autorun, derived } from '../../../../base/common/observable.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -21,6 +21,7 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { localize } from '../../../../nls.js';
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
+import { IWorkItemService } from '../../../services/workItems/common/workItemService.js';
 import { IViewDescriptorService } from '../../../../workbench/common/views.js';
 import { IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IViewPaneOptions, ViewPane } from '../../../../workbench/browser/parts/views/viewPane.js';
@@ -28,6 +29,16 @@ import { WorkspacePicker, IWorkspaceSelection } from './sessionWorkspacePicker.j
 import { ScopedWorkspacePicker } from './scopedWorkspacePicker.js';
 import { NewChatInputWidget } from './newChatInput.js';
 import { IChatRequestVariableEntry } from '../../../../workbench/contrib/chat/common/attachments/chatVariableEntries.js';
+
+export function getNewSessionHeaderLabel(activeWorkItemTitle: string | undefined, hasSelectedWorkspace: boolean): string {
+	return activeWorkItemTitle || (hasSelectedWorkspace
+		? localize('newSessionIn', "New session in")
+		: localize('newSessionChooseWorkspace', "Start by picking a"));
+}
+
+export function shouldShowWorkspaceAsSecondaryHeader(activeWorkItemTitle: string | undefined, hasSelectedWorkspace: boolean): boolean {
+	return !!activeWorkItemTitle && hasSelectedWorkspace;
+}
 
 // #region --- New Chat Widget ---
 
@@ -41,6 +52,7 @@ class NewChatWidget extends Disposable {
 		@ILogService private readonly logService: ILogService,
 		@ISessionsManagementService private readonly sessionsManagementService: ISessionsManagementService,
 		@ISessionsProvidersService private readonly sessionsProvidersService: ISessionsProvidersService,
+		@IWorkItemService private readonly workItemService: IWorkItemService,
 		@IWorkspaceTrustRequestService private readonly workspaceTrustRequestService: IWorkspaceTrustRequestService,
 	) {
 		super();
@@ -80,6 +92,17 @@ class NewChatWidget extends Disposable {
 		this._register(this._newChatInput.sessionTypePicker.onDidSelectSessionType(async sessionType => {
 			await this._onWorkspaceSelected(this._workspacePicker.selectedProject, sessionType);
 			this._newChatInput.focus();
+		}));
+
+		this._register(autorun(reader => {
+			const activeSession = this.sessionsManagementService.activeSession.read(reader);
+			const workspace = activeSession?.workspace.read(reader);
+			if (activeSession && workspace) {
+				this._workspacePicker.setSelectedWorkspace({
+					providerId: activeSession.providerId,
+					workspace,
+				}, false);
+			}
 		}));
 	}
 
@@ -156,15 +179,26 @@ class NewChatWidget extends Disposable {
 	private _renderWorkspacePicker(container: HTMLElement): IDisposable {
 		const pickersRow = dom.append(container, dom.$('.session-workspace-picker'));
 		const pickersLabel = dom.append(pickersRow, dom.$('.session-workspace-picker-label'));
-		pickersLabel.textContent = this._workspacePicker.selectedProject
-			? localize('newSessionIn', "New session in")
-			: localize('newSessionChooseWorkspace', "Start by picking a");
+		const updateHeaderState = () => {
+			const activeWorkItemTitle = this.workItemService.activeWorkItem.get()?.title.get();
+			const hasSelectedWorkspace = !!this._workspacePicker.selectedProject;
+			pickersLabel.textContent = getNewSessionHeaderLabel(activeWorkItemTitle, hasSelectedWorkspace);
+			pickersRow.classList.toggle('has-work-item-title', shouldShowWorkspaceAsSecondaryHeader(activeWorkItemTitle, hasSelectedWorkspace));
+		};
+		const updateLabel = () => {
+			updateHeaderState();
+		};
+		updateLabel();
 
 		this._workspacePicker.render(pickersRow);
-		return this._workspacePicker.onDidSelectWorkspace(() => {
-			const workspace = this._workspacePicker.selectedProject;
-			pickersLabel.textContent = workspace ? localize('newSessionIn', "New session in") : localize('newSessionChooseWorkspace', "Start by picking a");
-		});
+		const disposables = this._register(new Disposable());
+		disposables._register(this._workspacePicker.onDidSelectWorkspace(() => updateLabel()));
+		disposables._register(autorun(reader => {
+			const activeWorkItem = this.workItemService.activeWorkItem.read(reader);
+			activeWorkItem?.title.read(reader);
+			updateLabel();
+		}));
+		return disposables;
 	}
 
 	// --- Send ---

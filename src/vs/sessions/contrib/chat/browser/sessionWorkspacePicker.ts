@@ -32,6 +32,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { ISessionWorkspace, ISessionWorkspaceBrowseAction } from '../../../services/sessions/common/session.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
+import { IWorkItemService } from '../../../services/workItems/common/workItemService.js';
 import { IAgentHostSessionsProvider, isAgentHostProvider } from '../../../common/agentHostSessionsProvider.js';
 import { COPILOT_PROVIDER_ID } from '../../copilotChatSessions/browser/copilotChatSessionsProvider.js';
 import { IWorkspacesService, isRecentFolder } from '../../../../platform/workspaces/common/workspaces.js';
@@ -69,6 +70,18 @@ export interface IWorkspacePickerItem {
 	readonly checked?: boolean;
 	/** Command to execute when this item is selected. */
 	readonly commandId?: string;
+}
+
+export function getWorkspacePickerAriaLabel(activeWorkItemTitle: string | undefined, workspaceLabel: string | undefined): string {
+	if (activeWorkItemTitle) {
+		return workspaceLabel
+			? localize('workspacePicker.selectedWorkItemAriaLabel', "Workspace for {0}, {1}", activeWorkItemTitle, workspaceLabel)
+			: localize('workspacePicker.pickWorkItemAriaLabel', "Pick a workspace for {0}", activeWorkItemTitle);
+	}
+
+	return workspaceLabel
+		? localize('workspacePicker.selectedAriaLabel', "New session in {0}", workspaceLabel)
+		: localize('workspacePicker.pickAriaLabel', "Start by picking a workspace");
 }
 
 /**
@@ -110,6 +123,7 @@ export class WorkspacePicker extends Disposable {
 		@IOutputService private readonly outputService: IOutputService,
 		@IConfigurationService _configurationService: IConfigurationService,
 		@ICommandService private readonly commandService: ICommandService,
+		@IWorkItemService private readonly workItemService: IWorkItemService,
 		@IWorkspacesService private readonly workspacesService: IWorkspacesService,
 		@IMenuService private readonly menuService: IMenuService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
@@ -604,12 +618,12 @@ export class WorkspacePicker extends Disposable {
 
 		dom.clearNode(this._triggerElement);
 		const workspace = this._selectedWorkspace?.workspace;
-		const label = workspace ? workspace.label : localize('pickWorkspace', "workspace");
+		const workspaceLabel = workspace?.label;
+		const label = workspaceLabel ?? localize('pickWorkspace', "workspace");
 		const icon = workspace ? workspace.icon : Codicon.project;
+		const activeWorkItemTitle = this.workItemService.activeWorkItem.get()?.title.get();
 
-		this._triggerElement.setAttribute('aria-label', workspace
-			? localize('workspacePicker.selectedAriaLabel', "New session in {0}", label)
-			: localize('workspacePicker.pickAriaLabel', "Start by picking a workspace"));
+		this._triggerElement.setAttribute('aria-label', getWorkspacePickerAriaLabel(activeWorkItemTitle, workspaceLabel));
 
 		dom.append(this._triggerElement, renderIcon(icon));
 		const labelSpan = dom.append(this._triggerElement, dom.$('span.sessions-chat-dropdown-label'));

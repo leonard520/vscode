@@ -1,0 +1,180 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ---- Container ---- */
+
+.work-items-list-container {
+	height: 100%;
+}
+
+/* ---- Work Item Row ---- */
+
+.work-items-list .work-item-row {
+	display: flex;
+	flex-direction: column;
+	padding: 4px 12px 4px 0;
+	gap: 1px;
+	overflow: hidden;
+}
+
+.work-items-list .work-item-row .work-item-main {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	overflow: hidden;
+	line-height: 22px;
+}
+
+.work-items-list .work-item-row .work-item-main .work-item-status-icon {
+	flex-shrink: 0;
+	font-size: 14px;
+	width: 16px;
+	text-align: center;
+}
+
+.work-items-list .work-item-row .work-item-main .work-item-status-icon.open {
+	color: var(--vscode-charts-green);
+}
+
+.work-items-list .work-item-row .work-item-main .work-item-status-icon.closed {
+	color: var(--vscode-charts-purple, var(--vscode-descriptionForeground));
+}
+
+.work-items-list .work-item-row .work-item-main .work-item-title {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 13px;
+}
+
+.work-items-list .work-item-row .work-item-main .work-item-toolbar {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	opacity: 0;
+	transition: opacity 0.1s;
+}
+
+.work-items-list .work-item-row:hover .work-item-main .work-item-toolbar,
+.work-items-list .work-item-row:focus-within .work-item-main .work-item-toolbar,
+.work-items-list .monaco-list-row.focused .work-item-row .work-item-main .work-item-toolbar,
+.work-items-list .monaco-list-row.selected .work-item-row .work-item-main .work-item-toolbar {
+	opacity: 1;
+}
+
+.work-items-list .work-item-row .work-item-main .work-item-toolbar .monaco-toolbar {
+	height: 22px;
+}
+
+/* ---- Description Row ---- */
+
+.work-items-list .work-item-row .work-item-desc {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding-left: 20px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	overflow: hidden;
+	line-height: 18px;
+}
+
+.work-items-list .work-item-row .work-item-desc .work-item-issue-badge {
+	flex-shrink: 0;
+	font-family: var(--vscode-editor-font-family, var(--monaco-monospace-font));
+	font-size: 11px;
+	opacity: 0.85;
+}
+
+.work-items-list .work-item-row .work-item-desc .work-item-description {
+	flex-shrink: 0;
+}
+
+.work-items-list .work-item-row .work-item-desc .work-item-working-dir {
+	flex-shrink: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-family: var(--vscode-editor-font-family, var(--monaco-monospace-font));
+	font-size: 11px;
+	opacity: 0.85;
+}
+
+.work-items-list .work-item-row .work-item-desc .work-item-labels {
+	display: flex;
+	gap: 4px;
+	overflow: hidden;
+	flex-shrink: 1;
+	min-width: 0;
+}
+
+.work-items-list .work-item-row .work-item-desc .work-item-label {
+	padding: 0 5px;
+	border-radius: 10px;
+	font-size: 10px;
+	line-height: 16px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 80px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+
+.work-items-list .work-item-row .work-item-desc .work-item-label.more {
+	opacity: 0.7;
+}
+
+.work-items-list .work-item-row .work-item-desc .work-item-time {
+	flex-shrink: 0;
+	margin-left: auto;
+	opacity: 0.7;
+}
+
+/* ---- Section Header ---- */
+
+.work-items-list .work-item-section-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 12px 4px 0;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-foreground);
+	opacity: 0.65;
+}
+
+.work-items-list .work-item-section-header .work-item-section-label {
+	flex-shrink: 0;
+}
+
+.work-items-list .work-item-section-header .work-item-section-badge {
+	flex-shrink: 0;
+}
+
+/* ---- Unread Indicator ---- */
+
+.work-items-list .work-item-row .work-item-unread-indicator {
+	display: none;
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--vscode-agentsUnreadBadge-background, var(--vscode-activityBarBadge-background));
+	margin-left: 4px;
+}
+
+.work-items-list .work-item-row.has-unread {
+	border-left: 2px solid var(--vscode-agentsUnreadBadge-background, var(--vscode-activityBarBadge-background));
+}
+
+.work-items-list .work-item-row.has-unread .work-item-title {
+	font-weight: 600;
+	color: var(--vscode-foreground);
+}

@@ -801,6 +801,17 @@ export abstract class FilterViewPane extends ViewPane {
 		this.layoutBodyContent(height, width);
 	}
 
+	protected override updateActions(): void {
+		super.updateActions();
+		// After the toolbar rebuilds, the filter widget element may have been
+		// detached from the DOM if it was removed from the toolbar.  Ensure
+		// it is placed back in the body container when it should not be in the
+		// header.
+		if (this.filterContainer && !this.shouldShowFilterInHeader() && !this.filterContainer.contains(this.filterWidget.element)) {
+			append(this.filterContainer, this.filterWidget.element);
+		}
+	}
+
 	override shouldShowFilterInHeader(): boolean {
 		return !(this.dimension && this.dimension.width < 600 && this.dimension.height > 100);
 	}

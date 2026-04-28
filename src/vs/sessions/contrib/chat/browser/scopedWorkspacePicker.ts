@@ -20,6 +20,7 @@ import { IOutputService } from '../../../../workbench/services/output/common/out
 import { IPreferencesService } from '../../../../workbench/services/preferences/common/preferences.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
+import { IWorkItemService } from '../../../services/workItems/common/workItemService.js';
 import { IAgentHostFilterService } from '../../remoteAgentHost/common/agentHostFilter.js';
 import { IWorkspacePickerItem, IWorkspaceSelection, WorkspacePicker } from './sessionWorkspacePicker.js';
 import { IWorkspacesService } from '../../../../platform/workspaces/common/workspaces.js';
@@ -49,6 +50,7 @@ export class ScopedWorkspacePicker extends WorkspacePicker {
 		@IOutputService outputService: IOutputService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@ICommandService commandService: ICommandService,
+		@IWorkItemService workItemService: IWorkItemService,
 		@IWorkspacesService workspacesService: IWorkspacesService,
 		@IMenuService menuService: IMenuService,
 		@IContextKeyService contextKeyService: IContextKeyService,
@@ -67,6 +69,7 @@ export class ScopedWorkspacePicker extends WorkspacePicker {
 			outputService,
 			configurationService,
 			commandService,
+			workItemService,
 			workspacesService,
 			menuService,
 			contextKeyService,

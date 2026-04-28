@@ -1,0 +1,140 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.session-tab-bar {
+	display: flex;
+	align-items: center;
+	padding: 0 8px;
+	height: 35px;
+	gap: 2px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	flex-shrink: 0;
+	border-bottom: 1px solid var(--vscode-panel-border, transparent);
+}
+
+.session-tab-bar::-webkit-scrollbar {
+	height: 3px;
+}
+
+.session-tab-bar .session-tab {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 10px;
+	border-radius: 4px;
+	cursor: pointer;
+	white-space: nowrap;
+	font-size: 12px;
+	flex-shrink: 0;
+	max-width: 180px;
+	overflow: hidden;
+	border: 1px solid transparent;
+	touch-action: manipulation;
+}
+
+.session-tab-bar .session-tab:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.session-tab-bar .session-tab.active {
+	background: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.session-tab-bar .session-tab .session-tab-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.session-tab-bar .session-tab .session-tab-status {
+	flex-shrink: 0;
+	font-size: 12px;
+}
+
+.session-tab-bar .session-tab .session-tab-close {
+	flex-shrink: 0;
+	opacity: 0;
+	cursor: pointer;
+	padding: 2px;
+	border-radius: 3px;
+	touch-action: manipulation;
+}
+
+.session-tab-bar .session-tab:hover .session-tab-close,
+.session-tab-bar .session-tab:focus-within .session-tab-close {
+	opacity: 0.7;
+}
+
+.session-tab-bar .session-tab .session-tab-close:hover {
+	opacity: 1;
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.session-tab-bar .session-tab-add {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 4px;
+	cursor: pointer;
+	flex-shrink: 0;
+	opacity: 0.7;
+	touch-action: manipulation;
+}
+
+.session-tab-bar .session-tab-add:hover {
+	opacity: 1;
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+/* Archived session tabs */
+.session-tab-bar .session-tab.archived {
+	opacity: 0.55;
+	border: 1px dashed var(--vscode-panel-border, transparent);
+}
+
+.session-tab-bar .session-tab.archived:hover {
+	opacity: 0.8;
+}
+
+.session-tab-bar .session-tab.archived .session-tab-close {
+	opacity: 0;
+}
+
+.session-tab-bar .session-tab.archived:hover .session-tab-close,
+.session-tab-bar .session-tab.archived:focus-within .session-tab-close {
+	opacity: 0.7;
+}
+
+.session-tab-bar .session-tab.archived .session-tab-close:hover {
+	opacity: 1;
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+/* Show Archived toggle button */
+.session-tab-bar .session-tab-show-archived {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 4px;
+	cursor: pointer;
+	flex-shrink: 0;
+	opacity: 0.5;
+	touch-action: manipulation;
+}
+
+.session-tab-bar .session-tab-show-archived:hover {
+	opacity: 0.8;
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.session-tab-bar .session-tab-show-archived.active {
+	opacity: 1;
+	background: var(--vscode-toolbar-activeBackground, var(--vscode-toolbar-hoverBackground));
+}

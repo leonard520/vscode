@@ -25,8 +25,10 @@ import { ISessionsProvidersChangeEvent, ISessionsProvidersService } from '../../
 import { ISessionsProvider } from '../../../../services/sessions/common/sessionsProvider.js';
 import { IAgentHostSessionsProvider } from '../../../../common/agentHostSessionsProvider.js';
 import { ISessionWorkspace } from '../../../../services/sessions/common/session.js';
-import { WorkspacePicker, IWorkspaceSelection } from '../../browser/sessionWorkspacePicker.js';
+import { WorkspacePicker, IWorkspaceSelection, getWorkspacePickerAriaLabel } from '../../browser/sessionWorkspacePicker.js';
 import { ISessionsManagementService } from '../../../../services/sessions/common/sessionsManagement.js';
+import { IWorkItem } from '../../../../services/workItems/common/workItem.js';
+import { IWorkItemService } from '../../../../services/workItems/common/workItemService.js';
 import { IWorkspacesService } from '../../../../../platform/workspaces/common/workspaces.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -125,6 +127,7 @@ function createTestPicker(
 	disposables: DisposableStore,
 	providersService: MockSessionsProvidersService,
 	storageService?: IStorageService,
+	activeWorkItem?: IWorkItem,
 ): WorkspacePicker {
 	const instantiationService = disposables.add(new TestInstantiationService());
 	const storage = storageService ?? disposables.add(new TestStorageService());
@@ -143,6 +146,9 @@ function createTestPicker(
 	instantiationService.stub(IOutputService, {});
 	instantiationService.stub(IConfigurationService, { getValue: () => undefined });
 	instantiationService.stub(ICommandService, { executeCommand: async () => { } });
+	instantiationService.stub(IWorkItemService, {
+		activeWorkItem: observableValue<IWorkItem | undefined>('activeWorkItem', activeWorkItem),
+	});
 	instantiationService.stub(IWorkspacesService, {
 		getRecentlyOpened: async () => ({ workspaces: [], files: [] }),
 		onDidChangeRecentlyOpened: Event.None,
@@ -364,5 +370,30 @@ suite('WorkspacePicker - Connection Status', () => {
 		const picker = createTestPicker(disposables, providersService, storage);
 
 		assertSelectedProvider(picker, 'local-1', 'Local provider workspace should always be selectable');
+	});
+
+	test('uses the active work-item title in the aria-label when a workspace is selected', () => {
+		assert.strictEqual(
+			getWorkspacePickerAriaLabel('Rearchitect Scenarios', 'vscode'),
+			'Workspace for Rearchitect Scenarios, vscode',
+		);
+	});
+
+	test('uses the active work-item title in the aria-label before a workspace is selected', () => {
+		assert.strictEqual(
+			getWorkspacePickerAriaLabel('Rearchitect Scenarios', undefined),
+			'Pick a workspace for Rearchitect Scenarios',
+		);
+	});
+
+	test('falls back to the new-session aria-label when no work item is active', () => {
+		assert.strictEqual(
+			getWorkspacePickerAriaLabel(undefined, 'vscode'),
+			'New session in vscode',
+		);
+		assert.strictEqual(
+			getWorkspacePickerAriaLabel(undefined, undefined),
+			'Start by picking a workspace',
+		);
 	});
 });

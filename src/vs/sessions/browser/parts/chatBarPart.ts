@@ -30,6 +30,7 @@ import { Menus } from '../menus.js';
 import { ActiveChatBarContext, ChatBarFocusContext } from '../../common/contextkeys.js';
 import { ChatCompositeBar } from './chatCompositeBar.js';
 import { prepend } from '../../../base/browser/dom.js';
+import { SessionTabBar } from '../../contrib/workItems/browser/sessionTabBar.js';
 
 export class ChatBarPart extends AbstractPaneCompositePart { // TODO: should not be a AbstractPaneCompositePart but instead a custom Part with a CompositeBar
 
@@ -56,7 +57,11 @@ export class ChatBarPart extends AbstractPaneCompositePart { // TODO: should not
 	/** Height of the session composite bar when visible */
 	private static readonly SESSION_BAR_HEIGHT = 35;
 
+	/** Height of the work item session tab bar when visible */
+	private static readonly SESSION_TAB_BAR_HEIGHT = 35;
+
 	private _sessionCompositeBar: ChatCompositeBar | undefined;
+	private _sessionTabBar: SessionTabBar | undefined;
 
 	protected _lastLayout: { readonly width: number; readonly height: number; readonly top: number; readonly left: number } | undefined;
 
@@ -119,8 +124,17 @@ export class ChatBarPart extends AbstractPaneCompositePart { // TODO: should not
 		this._sessionCompositeBar = this._register(this.instantiationService.createInstance(ChatCompositeBar));
 		prepend(parent, this._sessionCompositeBar.element);
 
-		// Relayout when session bar visibility changes
+		// Create the session tab bar (for work item multi-session switching)
+		this._sessionTabBar = this._register(this.instantiationService.createInstance(SessionTabBar, parent));
+		parent.insertBefore(this._sessionTabBar.element, this._sessionCompositeBar.element.nextSibling);
+
+		// Relayout when either header bar visibility changes
 		this._register(this._sessionCompositeBar.onDidChangeVisibility(() => {
+			if (this._lastLayout) {
+				this.layout(this._lastLayout.width, this._lastLayout.height, this._lastLayout.top, this._lastLayout.left);
+			}
+		}));
+		this._register(this._sessionTabBar.onDidChangeVisibility(() => {
 			if (this._lastLayout) {
 				this.layout(this._lastLayout.width, this._lastLayout.height, this._lastLayout.top, this._lastLayout.left);
 			}
@@ -146,15 +160,16 @@ export class ChatBarPart extends AbstractPaneCompositePart { // TODO: should not
 
 		this._lastLayout = { width, height, top, left };
 
-		// Account for the session composite bar height when visible
+		// Account for the session composite bar and tab bar height when visible.
 		const sessionBarHeight = this._sessionCompositeBar?.visible ? ChatBarPart.SESSION_BAR_HEIGHT : 0;
+		const sessionTabBarHeight = this._sessionTabBar?.visible ? ChatBarPart.SESSION_TAB_BAR_HEIGHT : 0;
 
 		// Layout content with reduced dimensions to account for visual margins and border
 		const borderTotal = ChatBarPart.BORDER_WIDTH * 2;
 		const marginLeft = this.layoutService.isVisible(Parts.SIDEBAR_PART) ? 0 : ChatBarPart.MARGIN_LEFT;
 		super.layout(
 			width - marginLeft - ChatBarPart.MARGIN_RIGHT - borderTotal,
-			height - ChatBarPart.MARGIN_TOP - ChatBarPart.MARGIN_BOTTOM - borderTotal - sessionBarHeight,
+			height - ChatBarPart.MARGIN_TOP - ChatBarPart.MARGIN_BOTTOM - borderTotal - sessionBarHeight - sessionTabBarHeight,
 			top, left
 		);
 

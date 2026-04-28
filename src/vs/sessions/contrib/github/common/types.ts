@@ -138,6 +138,37 @@ export interface IGitHubPRReviewThread {
 
 //#endregion
 
+//#region Issues
+
+export interface IGitHubLabel {
+	readonly name: string;
+	readonly color: string;
+}
+
+export interface IGitHubIssue {
+	readonly number: number;
+	readonly title: string;
+	readonly body: string;
+	readonly state: 'open' | 'closed';
+	readonly labels: readonly IGitHubLabel[];
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly htmlUrl: string;
+	readonly user: IGitHubUser;
+}
+
+export interface IGitHubIssueComment {
+	readonly id: number;
+	readonly body: string;
+	readonly user: IGitHubUser;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly htmlUrl: string;
+	readonly authorAssociation: string;
+}
+
+//#endregion
+
 //#region CI Checks
 
 export const enum GitHubCheckStatus {

@@ -15,7 +15,7 @@ import { ChatViewPaneTarget, IChatWidgetService } from '../../../../workbench/co
 import { IAgentSessionsService } from '../../../../workbench/contrib/chat/browser/agentSessions/agentSessionsService.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { ActiveSessionProviderIdContext, ActiveSessionTypeContext, IsActiveSessionArchivedContext, IsActiveSessionBackgroundProviderContext, IsNewChatInSessionContext, IsNewChatSessionContext } from '../../../common/contextkeys.js';
-import { ActiveSessionSupportsMultiChatContext, IActiveSession, ISessionsChangeEvent, ISessionsManagementService } from '../common/sessionsManagement.js';
+import { ActiveSessionSupportsMultiChatContext, IActiveSession, ISessionReplaceEvent, ISessionsChangeEvent, ISessionsManagementService } from '../common/sessionsManagement.js';
 import { ISessionsProvidersChangeEvent, ISessionsProvidersService } from './sessionsProvidersService.js';
 import { ISendRequestOptions, ISessionChangeEvent, ISessionsProvider } from '../common/sessionsProvider.js';
 import { IChat, ISession, isWorkspaceAgentSessionType, SessionStatus, ISessionType } from '../common/session.js';
@@ -44,6 +44,8 @@ class SessionsManagementService extends Disposable implements ISessionsManagemen
 
 	private readonly _onDidChangeSessions = this._register(new Emitter<ISessionsChangeEvent>());
 	readonly onDidChangeSessions: Event<ISessionsChangeEvent> = this._onDidChangeSessions.event;
+	private readonly _onDidReplaceSession = this._register(new Emitter<ISessionReplaceEvent>());
+	readonly onDidReplaceSession: Event<ISessionReplaceEvent> = this._onDidReplaceSession.event;
 
 	private readonly _onDidChangeSessionTypes = this._register(new Emitter<void>());
 	readonly onDidChangeSessionTypes: Event<void> = this._onDidChangeSessionTypes.event;
@@ -158,6 +160,8 @@ class SessionsManagementService extends Disposable implements ISessionsManagemen
 	}
 
 	private onDidReplaceSession(from: ISession, to: ISession): void {
+		this._onDidReplaceSession.fire({ from, to });
+
 		if (this._activeSession.get()?.sessionId === from.sessionId) {
 			this.setActiveSession(to);
 			this._onDidChangeSessions.fire({
@@ -260,13 +264,14 @@ class SessionsManagementService extends Disposable implements ISessionsManagemen
 		await this.chatWidgetService.openSession(chatUri, ChatViewPaneTarget);
 	}
 
-	async openSession(sessionResource: URI, options?: { preserveFocus?: boolean }): Promise<void> {
-		const sessionData = this.getSession(sessionResource);
+	async openSession(session: ISession | URI, options?: { preserveFocus?: boolean }): Promise<void> {
+		const sessionData = URI.isUri(session) ? this.getSession(session) : session;
 		if (!sessionData) {
-			this.logService.warn(`[SessionsManagement] openSession: session not found: ${sessionResource.toString()}`);
-			throw new Error(`Session with resource ${sessionResource.toString()} not found`);
+			const sessionResource = session.toString();
+			this.logService.warn(`[SessionsManagement] openSession: session not found: ${sessionResource}`);
+			throw new Error(`Session with resource ${sessionResource} not found`);
 		}
-		this.logService.info(`[SessionsManagement] openSession: ${sessionResource.toString()} provider=${sessionData.providerId}`);
+		this.logService.info(`[SessionsManagement] openSession: ${sessionData.resource.toString()} provider=${sessionData.providerId}`);
 		this.isNewChatSessionContext.set(false);
 		this._isNewChatInSessionContext.set(false);
 		this.setActiveSession(sessionData);

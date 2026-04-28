@@ -460,4 +460,9 @@ import './contrib/policyBlocked/browser/policyBlocked.contribution.js';
 
 import './services/sessions/browser/sessionsManagementService.js';
 
+// Work Items
+import './services/workItems/browser/workItemService.js';
+import './services/workItems/browser/githubConfigService.js';
+import './contrib/workItems/browser/workItems.contribution.js';
+
 //#endregion

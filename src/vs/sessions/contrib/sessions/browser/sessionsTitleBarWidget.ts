@@ -30,6 +30,11 @@ import { SHOW_SESSIONS_PICKER_COMMAND_ID } from './sessionsActions.js';
 import { IsSessionArchivedContext, IsSessionPinnedContext, IsSessionReadContext, SessionItemContextMenuId } from './views/sessionsList.js';
 import { basename } from '../../../../base/common/resources.js';
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
+import { IWorkItemService } from '../../../services/workItems/common/workItemService.js';
+
+export function getSessionsTitleBarLabel(activeWorkItemTitle: string | undefined, activeSessionTitle: string | undefined): string {
+	return activeWorkItemTitle || activeSessionTitle || localize('agentSessions.newSession', "New Session");
+}
 
 /**
  * Sessions Title Bar Widget - renders the active chat session title
@@ -61,6 +66,7 @@ export class SessionsTitleBarWidget extends BaseActionViewItem {
 		options: IBaseActionViewItemOptions | undefined,
 		@IHoverService private readonly hoverService: IHoverService,
 		@ISessionsManagementService private readonly sessionsManagementService: ISessionsManagementService,
+		@IWorkItemService private readonly workItemService: IWorkItemService,
 		@ISessionsListModelService private readonly sessionsListModelService: ISessionsListModelService,
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IMenuService private readonly menuService: IMenuService,
@@ -73,6 +79,8 @@ export class SessionsTitleBarWidget extends BaseActionViewItem {
 		// Re-render when the active session, its data, or the active provider changes
 		this._register(autorun(reader => {
 			const sessionData = this.sessionsManagementService.activeSession.read(reader);
+			const activeWorkItem = this.workItemService.activeWorkItem.read(reader);
+			activeWorkItem?.title.read(reader);
 			if (sessionData) {
 				sessionData.title.read(reader);
 				sessionData.status.read(reader);
@@ -222,11 +230,9 @@ export class SessionsTitleBarWidget extends BaseActionViewItem {
 	 * Get the label of the active chat session.
 	 */
 	private _getActiveSessionLabel(): string {
+		const activeWorkItem = this.workItemService.activeWorkItem.get();
 		const sessionData = this.sessionsManagementService.activeSession.get();
-		if (sessionData) {
-			return sessionData.title.get() || localize('agentSessions.newSession', "New Session");
-		}
-		return localize('agentSessions.newSession', "New Session");
+		return getSessionsTitleBarLabel(activeWorkItem?.title.get(), sessionData?.title.get());
 	}
 
 	/**

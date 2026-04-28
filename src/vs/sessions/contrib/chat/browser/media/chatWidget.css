@@ -187,6 +187,12 @@
 	padding: 0;
 }
 
+.session-workspace-picker.has-work-item-title {
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+}
+
 .session-workspace-picker:empty {
 	display: none;
 }
@@ -196,6 +202,12 @@
 	line-height: 1.25;
 	color: var(--vscode-descriptionForeground);
 	white-space: nowrap;
+}
+
+.session-workspace-picker.has-work-item-title .session-workspace-picker-label {
+	color: var(--vscode-foreground);
+	font-weight: 500;
+	white-space: normal;
 }
 
 /* Project picker in inline title row */
@@ -211,8 +223,19 @@
 	touch-action: manipulation;
 }
 
+.session-workspace-picker.has-work-item-title .sessions-chat-picker-slot.sessions-chat-workspace-picker .action-label {
+	padding: 0;
+	font-size: 12px;
+	line-height: 1.4;
+	color: var(--vscode-descriptionForeground);
+}
+
 .sessions-chat-picker-slot.sessions-chat-workspace-picker .action-label:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
+	color: var(--vscode-foreground);
+}
+
+.session-workspace-picker.has-work-item-title .sessions-chat-picker-slot.sessions-chat-workspace-picker .action-label:hover {
 	color: var(--vscode-foreground);
 }
 
@@ -220,9 +243,18 @@
 	font-size: 18px;
 }
 
+.session-workspace-picker.has-work-item-title .sessions-chat-picker-slot.sessions-chat-workspace-picker .action-label .sessions-chat-dropdown-label {
+	font-size: 12px;
+	margin-left: 4px;
+}
+
 .sessions-chat-picker-slot.sessions-chat-workspace-picker .action-label > .codicon:not(.sessions-chat-dropdown-chevron) {
 	font-size: 16px;
 	margin: 0;
+}
+
+.session-workspace-picker.has-work-item-title .sessions-chat-picker-slot.sessions-chat-workspace-picker .action-label > .codicon:not(.sessions-chat-dropdown-chevron) {
+	font-size: 12px;
 }
 
 .sessions-chat-picker-slot.sessions-chat-workspace-picker .action-label .sessions-chat-dropdown-chevron {
@@ -233,6 +265,12 @@
 	margin-left: 6px;
 	line-height: 1;
 	transform: translateY(1px);
+}
+
+.session-workspace-picker.has-work-item-title .sessions-chat-picker-slot.sessions-chat-workspace-picker .action-label .sessions-chat-dropdown-chevron {
+	font-size: 12px;
+	margin-left: 4px;
+	transform: none;
 }
 
 .sessions-chat-dropdown-label {

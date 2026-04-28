@@ -6,7 +6,7 @@
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { createDecorator, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IGitHubChangedFile } from '../common/types.js';
+import { IGitHubChangedFile, IGitHubIssue, IGitHubIssueComment } from '../common/types.js';
 import { GitHubApiClient } from './githubApiClient.js';
 import { GitHubRepositoryFetcher } from './fetchers/githubRepositoryFetcher.js';
 import { GitHubPRFetcher } from './fetchers/githubPRFetcher.js';
@@ -41,6 +41,41 @@ export interface IGitHubService {
 	 * List files changed between two refs using the GitHub compare API.
 	 */
 	getChangedFiles(owner: string, repo: string, base: string, head: string): Promise<readonly IGitHubChangedFile[]>;
+
+	/**
+	 * Fetch a single GitHub issue.
+	 */
+	getIssue(owner: string, repo: string, issueNumber: number): Promise<IGitHubIssue>;
+
+	/**
+	 * Create a new GitHub issue. Returns the created issue.
+	 */
+	createIssue(owner: string, repo: string, title: string, body?: string, labels?: string[]): Promise<IGitHubIssue>;
+
+	/**
+	 * Update a GitHub issue (title, body, state, labels).
+	 */
+	updateIssue(owner: string, repo: string, issueNumber: number, changes: { title?: string; body?: string; state?: 'open' | 'closed'; labels?: string[] }): Promise<IGitHubIssue>;
+
+	/**
+	 * Add a comment to a GitHub issue.
+	 */
+	createIssueComment(owner: string, repo: string, issueNumber: number, body: string): Promise<void>;
+
+	/**
+	 * Search issues in a repo.
+	 */
+	searchIssues(owner: string, repo: string, query?: string, state?: 'open' | 'closed' | 'all'): Promise<readonly IGitHubIssue[]>;
+
+	/**
+	 * List open issues assigned to the authenticated user for a repository.
+	 */
+	getAssignedIssues(owner: string, repo: string): Promise<readonly IGitHubIssue[]>;
+
+	/**
+	 * Fetch comments on a GitHub issue.
+	 */
+	getIssueComments(owner: string, repo: string, issueNumber: number): Promise<readonly IGitHubIssueComment[]>;
 }
 
 export const IGitHubService = createDecorator<IGitHubService>('sessionsGitHubService');
@@ -110,4 +145,99 @@ export class GitHubService extends Disposable implements IGitHubService {
 	getChangedFiles(owner: string, repo: string, base: string, head: string): Promise<readonly IGitHubChangedFile[]> {
 		return this._changesFetcher.getChangedFiles(owner, repo, base, head);
 	}
+
+	async getIssue(owner: string, repo: string, issueNumber: number): Promise<IGitHubIssue> {
+		this._logService.trace(`${LOG_PREFIX} Fetching issue ${owner}/${repo}#${issueNumber}`);
+		const raw = await this._apiClient.request<any>('GET', `/repos/${owner}/${repo}/issues/${issueNumber}`, 'getIssue');
+		return mapIssue(raw);
+	}
+
+	async createIssue(owner: string, repo: string, title: string, body?: string, labels?: string[]): Promise<IGitHubIssue> {
+		this._logService.trace(`${LOG_PREFIX} Creating issue in ${owner}/${repo}: "${title}"`);
+		const raw = await this._apiClient.request<any>('POST', `/repos/${owner}/${repo}/issues`, 'createIssue', {
+			title,
+			body: body ?? '',
+			labels: labels ?? [],
+		});
+		return mapIssue(raw);
+	}
+
+	async updateIssue(owner: string, repo: string, issueNumber: number, changes: { title?: string; body?: string; state?: 'open' | 'closed'; labels?: string[] }): Promise<IGitHubIssue> {
+		this._logService.trace(`${LOG_PREFIX} Updating issue ${owner}/${repo}#${issueNumber}`);
+		const raw = await this._apiClient.request<any>('PATCH', `/repos/${owner}/${repo}/issues/${issueNumber}`, 'updateIssue', changes);
+		return mapIssue(raw);
+	}
+
+	async createIssueComment(owner: string, repo: string, issueNumber: number, body: string): Promise<void> {
+		this._logService.trace(`${LOG_PREFIX} Adding comment to issue ${owner}/${repo}#${issueNumber}`);
+		await this._apiClient.request<unknown>('POST', `/repos/${owner}/${repo}/issues/${issueNumber}/comments`, 'createIssueComment', { body });
+	}
+
+	async searchIssues(owner: string, repo: string, query?: string, state?: 'open' | 'closed' | 'all'): Promise<readonly IGitHubIssue[]> {
+		this._logService.trace(`${LOG_PREFIX} Searching issues in ${owner}/${repo} (state=${state ?? 'open'}, query=${query ?? ''})`);
+		const params = new URLSearchParams();
+		params.set('state', state ?? 'open');
+		params.set('per_page', '50');
+		if (query) {
+			// Use the search endpoint for text queries
+			params.set('q', query);
+		}
+		const raw = await this._apiClient.request<any[]>('GET', `/repos/${owner}/${repo}/issues?${params.toString()}`, 'searchIssues');
+		// Filter out pull requests (GitHub Issues API includes PRs)
+		return raw.filter(item => !item.pull_request).map(mapIssue);
+	}
+
+	async getAssignedIssues(owner: string, repo: string): Promise<readonly IGitHubIssue[]> {
+		this._logService.trace(`${LOG_PREFIX} Fetching assigned issues for ${owner}/${repo}`);
+		const issues: IGitHubIssue[] = [];
+
+		for (let page = 1; ; page++) {
+			const params = new URLSearchParams();
+			params.set('q', `repo:${owner}/${repo} is:issue is:open assignee:@me`);
+			params.set('per_page', '100');
+			params.set('page', String(page));
+
+			const raw = await this._apiClient.request<{ items?: any[] }>('GET', `/search/issues?${params.toString()}`, 'getAssignedIssues');
+			const pageItems = (raw.items ?? []).filter(item => !item.pull_request).map(mapIssue);
+			issues.push(...pageItems);
+
+			if (pageItems.length < 100) {
+				break;
+			}
+		}
+
+		return issues;
+	}
+
+	async getIssueComments(owner: string, repo: string, issueNumber: number): Promise<readonly IGitHubIssueComment[]> {
+		this._logService.trace(`${LOG_PREFIX} Fetching comments for issue ${owner}/${repo}#${issueNumber}`);
+		const raw = await this._apiClient.request<any[]>('GET', `/repos/${owner}/${repo}/issues/${issueNumber}/comments?per_page=100`, 'getIssueComments');
+		return raw.map(mapIssueComment);
+	}
+}
+
+function mapIssue(raw: any): IGitHubIssue {
+	return {
+		number: raw.number,
+		title: raw.title,
+		body: raw.body ?? '',
+		state: raw.state,
+		labels: (raw.labels ?? []).map((l: any) => ({ name: l.name, color: l.color })),
+		createdAt: raw.created_at,
+		updatedAt: raw.updated_at,
+		htmlUrl: raw.html_url,
+		user: { login: raw.user.login, avatarUrl: raw.user.avatar_url },
+	};
+}
+
+function mapIssueComment(raw: any): IGitHubIssueComment {
+	return {
+		id: raw.id,
+		body: raw.body ?? '',
+		user: { login: raw.user.login, avatarUrl: raw.user.avatar_url },
+		createdAt: raw.created_at,
+		updatedAt: raw.updated_at,
+		htmlUrl: raw.html_url,
+		authorAssociation: raw.author_association ?? '',
+	};
 }

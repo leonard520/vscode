@@ -15,6 +15,8 @@ import { autorun } from '../../../../base/common/observable.js';
 import { IWorkspaceFolderCreationData } from '../../../../platform/workspaces/common/workspaces.js';
 import { Queue } from '../../../../base/common/async.js';
 import { ISession } from '../../../services/sessions/common/session.js';
+import { IWorkItemService } from '../../../services/workItems/common/workItemService.js';
+import { IWorkItem } from '../../../services/workItems/common/workItem.js';
 
 export class WorkspaceFolderManagementContribution extends Disposable implements IWorkbenchContribution {
 
@@ -23,6 +25,7 @@ export class WorkspaceFolderManagementContribution extends Disposable implements
 
 	constructor(
 		@ISessionsManagementService private readonly sessionManagementService: ISessionsManagementService,
+		@IWorkItemService private readonly workItemService: IWorkItemService,
 		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IWorkspaceEditingService private readonly workspaceEditingService: IWorkspaceEditingService,
@@ -32,13 +35,15 @@ export class WorkspaceFolderManagementContribution extends Disposable implements
 		this._register(autorun(reader => {
 			const activeSession = this.sessionManagementService.activeSession.read(reader);
 			activeSession?.workspace.read(reader);
-			this.queue.queue(() => this.updateWorkspaceFoldersForSession(activeSession));
+			const activeWorkItem = this.workItemService.activeWorkItem.read(reader);
+			activeWorkItem?.workingDirectory.read(reader);
+			this.queue.queue(() => this.updateWorkspaceFolders(activeSession, activeWorkItem));
 		}));
 	}
 
-	private async updateWorkspaceFoldersForSession(session: ISession | undefined): Promise<void> {
+	private async updateWorkspaceFolders(session: ISession | undefined, workItem: IWorkItem | undefined): Promise<void> {
 		await this.manageTrustWorkspaceForSession(session);
-		const activeSessionFolderData = this.getActiveSessionFolderData(session);
+		const activeSessionFolderData = this.getWorkspaceFolderData(session, workItem);
 		const currentRepo = this.workspaceContextService.getWorkspace().folders[0]?.uri;
 
 		if (!activeSessionFolderData) {
@@ -60,12 +65,8 @@ export class WorkspaceFolderManagementContribution extends Disposable implements
 		await this.workspaceEditingService.updateFolders(0, 1, [activeSessionFolderData], true);
 	}
 
-	private getActiveSessionFolderData(session: ISession | undefined): IWorkspaceFolderCreationData | undefined {
-		if (!session) {
-			return undefined;
-		}
-
-		const workspace = session.workspace.get();
+	private getWorkspaceFolderData(session: ISession | undefined, workItem: IWorkItem | undefined): IWorkspaceFolderCreationData | undefined {
+		const workspace = session?.workspace.get();
 		const repo = workspace?.repositories[0];
 		const repository = repo?.uri;
 		const worktree = repo?.workingDirectory;
@@ -82,6 +83,14 @@ export class WorkspaceFolderManagementContribution extends Disposable implements
 			return {
 				uri: repository,
 				name: workspace?.label,
+			};
+		}
+
+		const workingDirectory = workItem?.workingDirectory.get();
+		if (workingDirectory) {
+			return {
+				uri: workingDirectory,
+				name: this.uriIdentityService.extUri.basename(workingDirectory),
 			};
 		}
 

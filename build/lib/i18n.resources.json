@@ -705,6 +705,10 @@
 			"project": "vscode-sessions"
 		},
 		{
+			"name": "vs/sessions/contrib/workItems",
+			"project": "vscode-sessions"
+		},
+		{
 			"name": "vs/sessions/contrib/welcome",
 			"project": "vscode-sessions"
 		},

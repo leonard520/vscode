@@ -88,7 +88,8 @@ The widget:
 - Keeps the command center focused on the session picker widget itself, without an adjacent "Mark as Done" action button
 - Truncates the repository/worktree metadata with ellipsis before truncating the primary AI-generated session title when command center space is constrained
 - On click, opens the `AgentSessionsPicker` quick pick to switch between sessions
-- Gets the active session label from `IActiveSessionService.getActiveSession()` and the live model title from `IChatService`, falling back to "New Session" if no active session is found
+- Gets the command-center label from the active work item's title when one is selected, otherwise from the active session title, falling back to "New Session" if neither is available
+- When an active work item is restored before its provider-backed sessions finish loading, the workbench keeps the active session aligned to that work item's latest resolved session as those sessions appear or if later startup restore steps temporarily point the chat surface at an unrelated session, unless the user is explicitly in the New Session view
 - Re-renders automatically when the active session changes via `autorun` on `IActiveSessionService.activeSession`, and when session data changes via `IAgentSessionsService.model.onDidChangeSessions`
 - Is registered via `SessionsTitleBarContribution` (an `IWorkbenchContribution` in `contrib/sessions/browser/sessionsTitleBarWidget.ts`) that calls `IActionViewItemService.register()` to intercept the submenu rendering
 - Uses `padding-left: 0` while the sidebar is visible, and restores `padding-left: 16px` when the sidebar is hidden via the `nosidebar` workbench class
@@ -664,6 +665,12 @@ interface IPartVisibilityState {
 
 | Date | Change |
 |------|--------|
+| 2026-04-27 | Updated restored work-item history activation so when a persisted history session becomes active before provider refresh events arrive, the work-item tab model rehydrates that session immediately instead of waiting for a later sessions-change event. |
+| 2026-04-27 | Tightened restored work-item/session alignment so startup can recover if a later restore step briefly reselects an unrelated session, while still preserving the explicit New Session view. |
+| 2026-04-27 | Refined the center new-session header so an active work item title is rendered as the primary heading while the selected workspace picker is demoted to secondary metadata, and direct session-tab clicks now persist the explicitly selected work-item history session before opening it. |
+| 2026-04-27 | Updated the sessions titlebar command-center label to prefer the active work item title while preserving session workspace metadata, and aligned work-item activation to open the concrete latest `ISession` so history switches use the resolved session object. |
+| 2026-04-27 | Updated the work-item session tab bar so clicking a tab opens the referenced `ISession` directly, which keeps pending work-item sessions switchable before providers publish them, and untitled tabs now show a `New Session` fallback label instead of rendering blank summaries. |
+| 2026-04-27 | Updated the sessions workspace sync so the auxiliary bar and workspace-folder context can fall back to the active work item's working directory when the selected work item has no resolved active-session workspace yet, including after restoring a previously selected work item. |
 | 2026-04-23 | Updated mobile layout policy platform detection to use shared `platform.isMobile`, and reduced phone-layout CSS `!important` usage where selector specificity already provides stable overrides. |
 | 2026-04-22 | Increased the sessions titlebar account widget's GitHub profile image from `16px × 16px` to `18px × 18px` while keeping the existing `22px × 22px` control footprint and avatar border treatment. |
 | 2026-04-22 | Added sessions-only toast offset overrides so notification toasts now use `right: 15px` in the default bottom-right placement and `left: 15px` in the bottom-left placement, matching the notification center spacing. |
@@ -672,6 +679,7 @@ interface IPartVisibilityState {
 | 2026-04-22 | Updated the sessions auxiliary bar sizing rules so attached diff editors and integrated browser editors keep the normal 270px auxiliary-bar minimum width while disabling sash snap-to-close in that state, and the titlebar toggle continues to hide/show the secondary sidebar normally. |
 | 2026-04-22 | Updated the sessions **Maximize Editor** and **Restore Editor** actions so maximize hides the panel only when the terminal view is currently visible, and restore reopens that terminal panel when maximize hid it. |
 | 2026-04-21 | Renamed the command-center "Add Chat" titlebar action to "New Sub-Session" so the plus-button tooltip matches the sub-session workflow. |
+| 2026-04-27 | Updated the center new-session empty-state header to prefer the active work-item title over the generic `New session in` label, while keeping the workspace picker fallback when no work item is selected. |
 | 2026-04-21 | Removed the remaining left-margin spacing after the titlebar's VS Code and session-picker items, and dropped the command-center "Mark as Done" checkmark button next to the active session title. |
 | 2026-04-21 | Removed the titlebar's vertical separator bars in favor of spacing-only group separation, and removed the dot separator between the active session title and its folder/worktree metadata. |
 | 2026-04-21 | Updated the sessions chat composite bar tabs to preserve each chat title's original casing instead of applying per-word capitalization. |
@@ -689,6 +697,7 @@ interface IPartVisibilityState {
 | 2026-04-10 | Updated both sessions chat input surfaces so the standalone new-chat input and the active chat widget input switch their border to `focusBorder` while focused, matching the core workbench chat widget focus treatment. |
 | 2026-04-14 | Reworked the sessions accent-tinted background into a single root-level pseudo-element behind the workbench parts, then gated it behind `sessions.experimental.shellGradientBackground` so the shell gradient is opt-in while it is being dogfooded and the default styling remains identical to the upstream non-experimental shell. |
 | 2026-04-08 | Darkened the light-theme-only chat, auxiliary bar, and panel card borders with a sessions-specific CSS `border-color` override that uses `editorWidget.border`; dark and high-contrast themes continue using the existing part border tokens. |
+| 2026-04-27 | Work-item session restore compatibility now keeps the active work-item title visible while reconciling legacy stored `untitled-*` session references to committed history sessions reopened from persisted profiles. |
 | 2026-04-08 | Rounded the sessions workbench sash hover indicators and orthogonal drag handles via `browser/media/style.css` so resize handles use rounded corners instead of square edges. |
 | 2026-04-04 | Inverted the default light-theme surface mapping so the sessions window background uses the off-white workbench/sidebar surface while the chat, changes, and panel cards use the brighter editor background; dark and high-contrast mappings remain unchanged. |
 | 2026-04-03 | Updated `SessionsTitleBarWidget` to format active session titles as `{Title} · {repo name} ({git branch/worktree name})` when repository detail metadata is available, falling back to the worktree folder name when needed. |

@@ -36,7 +36,7 @@ const agentSessionsViewContainer: ViewContainer = Registry.as<IViewContainersReg
 		order: 0
 	},
 	windowEnablement: WindowEnablement.Sessions
-}, ViewContainerLocation.Sidebar, { isDefault: true });
+}, ViewContainerLocation.Sidebar);
 
 const sessionsViewPaneDescriptor: IViewDescriptor = {
 	id: SessionsViewId,

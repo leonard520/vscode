@@ -1,0 +1,330 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.work-item-detail-editor {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow-y: auto;
+	padding: 16px 24px;
+	box-sizing: border-box;
+}
+
+/* Header */
+
+.work-item-detail-editor .work-item-detail-header {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 16px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border));
+}
+
+.work-item-detail-editor .work-item-detail-title-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.work-item-detail-editor .work-item-detail-title {
+	font-size: 18px;
+	font-weight: 600;
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.work-item-detail-editor .work-item-detail-status-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 8px;
+	border-radius: 12px;
+	font-size: 12px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+.work-item-detail-editor .work-item-detail-status-badge.open {
+	background-color: var(--vscode-charts-green);
+	color: var(--vscode-editor-background);
+}
+
+.work-item-detail-editor .work-item-detail-status-badge.closed {
+	background-color: var(--vscode-charts-purple);
+	color: var(--vscode-editor-background);
+}
+
+.work-item-detail-editor .work-item-detail-meta {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.work-item-detail-editor .work-item-detail-meta-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.work-item-detail-editor .work-item-detail-meta-item .codicon {
+	font-size: 14px;
+}
+
+.work-item-detail-editor .work-item-detail-label {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: 10px;
+	font-size: 11px;
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	margin-right: 4px;
+}
+
+.work-item-detail-editor .work-item-detail-issue-link {
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.work-item-detail-editor .work-item-detail-issue-link:hover {
+	text-decoration: underline;
+}
+
+/* Sections */
+
+.work-item-detail-editor .work-item-detail-section {
+	margin-bottom: 16px;
+}
+
+.work-item-detail-editor .work-item-detail-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.work-item-detail-editor .work-item-detail-section-title {
+	font-size: 13px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Description */
+
+.work-item-detail-editor .work-item-detail-description {
+	line-height: 1.5;
+}
+
+.work-item-detail-editor .work-item-detail-description .rendered-markdown {
+	word-wrap: break-word;
+}
+
+.work-item-detail-editor .work-item-detail-empty-text {
+	font-style: italic;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Discussion */
+
+.work-item-detail-editor .work-item-detail-discussion {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.work-item-detail-editor .work-item-detail-comment {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 8px 12px;
+	border: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border));
+	border-radius: 6px;
+	background-color: var(--vscode-editor-background);
+}
+
+.work-item-detail-editor .work-item-detail-comment-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+}
+
+.work-item-detail-editor .work-item-detail-comment-avatar {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+}
+
+.work-item-detail-editor .work-item-detail-comment-author {
+	font-weight: 600;
+}
+
+.work-item-detail-editor .work-item-detail-comment-association {
+	padding: 0 4px;
+	border-radius: 8px;
+	font-size: 10px;
+	border: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border));
+	color: var(--vscode-descriptionForeground);
+}
+
+.work-item-detail-editor .work-item-detail-comment-time {
+	color: var(--vscode-descriptionForeground);
+}
+
+.work-item-detail-editor .work-item-detail-comment-body {
+	line-height: 1.5;
+}
+
+.work-item-detail-editor .work-item-detail-comment-body .rendered-markdown {
+	word-wrap: break-word;
+}
+
+/* Reply box */
+
+.work-item-detail-editor .work-item-detail-reply {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+.work-item-detail-editor .work-item-detail-reply textarea {
+	width: 100%;
+	min-height: 80px;
+	padding: 8px;
+	border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: 4px;
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+	resize: vertical;
+	box-sizing: border-box;
+}
+
+.work-item-detail-editor .work-item-detail-reply textarea:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.work-item-detail-editor .work-item-detail-reply-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.work-item-detail-editor .work-item-detail-reply-button {
+	padding: 4px 12px;
+	border: none;
+	border-radius: 4px;
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.work-item-detail-editor .work-item-detail-reply-button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.work-item-detail-editor .work-item-detail-reply-button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+/* Loading & Refresh */
+
+.work-item-detail-editor .work-item-detail-refresh-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	background: none;
+	border: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	font-size: 12px;
+	padding: 2px 4px;
+	border-radius: 4px;
+}
+
+.work-item-detail-editor .work-item-detail-refresh-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.work-item-detail-editor .work-item-detail-loading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	padding: 8px 0;
+}
+
+/* Editable elements */
+
+.work-item-detail-editor .editable {
+	cursor: pointer;
+	border-radius: 4px;
+	padding: 1px 4px;
+	margin: -1px -4px;
+}
+
+.work-item-detail-editor .editable:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+/* Description edit area */
+
+.work-item-detail-editor .work-item-detail-description.editable {
+	min-height: 24px;
+}
+
+.work-item-detail-editor .work-item-detail-description-edit {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.work-item-detail-editor .work-item-detail-description-textarea {
+	width: 100%;
+	min-height: 120px;
+	padding: 8px;
+	border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+	border-radius: 4px;
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+	font-size: var(--vscode-editor-font-size, var(--vscode-font-size));
+	resize: vertical;
+	box-sizing: border-box;
+	line-height: 1.5;
+}
+
+.work-item-detail-editor .work-item-detail-description-textarea:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+/* Cancel button */
+
+.work-item-detail-editor .work-item-detail-cancel-button {
+	padding: 4px 12px;
+	border: 1px solid var(--vscode-button-secondaryBorder, var(--vscode-panel-border));
+	border-radius: 4px;
+	background-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	font-size: 12px;
+	cursor: pointer;
+	margin-left: 8px;
+}
+
+.work-item-detail-editor .work-item-detail-cancel-button:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
