@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from '../../../../nls.js';
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -17,11 +18,16 @@ import { IWorkItemService } from '../../../services/workItems/common/workItemSer
 import { IGitHubRepoConfig, IWorkItemGitHubConfigService } from '../../../services/workItems/common/githubConfig.js';
 import { IGitHubService } from '../../github/browser/githubService.js';
 import { IGitHubIssue } from '../../github/common/types.js';
-import { HasActiveWorkItemContext, ActiveWorkItemHasLinkedIssueContext } from '../../../common/contextkeys.js';
+import { HasActiveWorkItemContext, ActiveWorkItemHasLinkedIssueContext, ActiveWorkItemSessionCountContext } from '../../../common/contextkeys.js';
 import { Menus } from '../../../browser/menus.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { IEditorService } from '../../../../workbench/services/editor/common/editorService.js';
 import { WorkItemEditorInput } from './workItemEditorInput.js';
+import { WorkItemSummaryEditorInput } from './workItemSummaryEditorInput.js';
+import { SummaryMode, SummaryTimeRange } from './workItemSummaryGenerator.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
+import { IWorkItemSyncService } from './workItemSyncService.js';
 
 const WORK_ITEMS_CATEGORY = localize2('workItems.category', "Work Items");
 
@@ -224,7 +230,7 @@ registerAction2(class extends Action2 {
 			return;
 		}
 
-		const item = workItemService.createWorkItem({ title, priority: WorkItemPriority.Backlog });
+		const item = workItemService.createWorkItem({ title });
 		workItemService.setActiveWorkItem(item.id);
 	}
 });
@@ -352,10 +358,6 @@ registerAction2(class extends Action2 {
 				id: Menus.WorkItemContextMenu,
 				group: '1_actions',
 				order: 0,
-			}, {
-				id: Menus.WorkItemToolbar,
-				group: 'navigation',
-				order: 1,
 			}],
 			precondition: HasActiveWorkItemContext,
 		});
@@ -395,10 +397,6 @@ registerAction2(class extends Action2 {
 			menu: [{
 				id: Menus.WorkItemContextMenu,
 				group: '2_config',
-				order: 2,
-			}, {
-				id: Menus.WorkItemToolbar,
-				group: 'navigation',
 				order: 2,
 			}],
 			precondition: ContextKeyExpr.and(HasActiveWorkItemContext, ActiveWorkItemHasLinkedIssueContext.toNegated()),
@@ -582,10 +580,6 @@ registerAction2(class extends Action2 {
 				id: Menus.WorkItemContextMenu,
 				group: '3_navigate',
 				order: 0,
-			}, {
-				id: Menus.WorkItemToolbar,
-				group: 'navigation',
-				order: 3,
 			}],
 			precondition: HasActiveWorkItemContext,
 		});
@@ -820,5 +814,120 @@ registerAction2(class extends Action2 {
 				status: pick.issue.state === 'open' ? WorkItemStatus.Open : WorkItemStatus.Closed,
 			});
 		}
+	}
+});
+
+// -- Generate Discussion from Sessions --
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workItems.generateDiscussionFromSessions',
+			title: localize2('workItems.generateDiscussionFromSessions', "Generate Discussion from Sessions"),
+			category: WORK_ITEMS_CATEGORY,
+			icon: Codicon.commentDiscussion,
+			menu: [{
+				id: Menus.WorkItemContextMenu,
+				group: '2_config',
+				order: 5,
+			}],
+			precondition: ContextKeyExpr.and(HasActiveWorkItemContext, ActiveWorkItemSessionCountContext.notEqualsTo(0)),
+		});
+	}
+
+	async run(accessor: ServicesAccessor, arg?: unknown): Promise<void> {
+		const workItemService = accessor.get(IWorkItemService);
+		const syncService = accessor.get(IWorkItemSyncService);
+		const notificationService = accessor.get(INotificationService);
+		const progressService = accessor.get(IProgressService);
+
+		const active = getTargetWorkItem(workItemService, arg);
+		if (!active) {
+			return;
+		}
+
+		const sessions = active.sessions.get();
+		if (sessions.length === 0) {
+			notificationService.info(localize('workItems.noSessionsToSummarize', "This work item has no sessions to summarize."));
+			return;
+		}
+
+		const cts = new CancellationTokenSource();
+		const summary = await progressService.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: localize('workItems.generatingSummary', "Generating summary from {0} sessions...", sessions.length),
+				cancellable: true,
+			},
+			async (progress) => {
+				return syncService.generateSessionSummary(active, cts.token, { progress });
+			},
+			() => cts.cancel()
+		);
+		cts.dispose();
+
+		if (summary) {
+			workItemService.addDiscussion(active.id, summary);
+			notificationService.info(localize('workItems.discussionAdded', "Discussion added from {0} sessions. View it in the work item detail.", sessions.length));
+		}
+	}
+});
+
+// -- Generate Work Summary --
+
+interface ISummaryTimeRangeQuickPickItem extends IQuickPickItem {
+	readonly timeRange: SummaryTimeRange;
+}
+
+interface ISummaryModeQuickPickItem extends IQuickPickItem {
+	readonly mode: SummaryMode;
+}
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workItems.generateSummary',
+			title: localize2('workItems.generateSummary', "Generate Work Summary"),
+			category: WORK_ITEMS_CATEGORY,
+			icon: Codicon.sparkle,
+			menu: [{
+				id: Menus.WorkItemsViewTitle,
+				group: 'navigation',
+				order: 3,
+			}],
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const quickInputService = accessor.get(IQuickInputService);
+		const editorService = accessor.get(IEditorService);
+
+		const timePick = await quickInputService.pick<ISummaryTimeRangeQuickPickItem>(
+			[
+				{ label: localize('summary.pick.today', "Today"), timeRange: SummaryTimeRange.Today },
+				{ label: localize('summary.pick.thisWeek', "This Week"), timeRange: SummaryTimeRange.ThisWeek },
+				{ label: localize('summary.pick.thisMonth', "This Month"), timeRange: SummaryTimeRange.ThisMonth },
+			],
+			{ placeHolder: localize('summary.pick.placeholder', "Select time range for work summary") }
+		);
+
+		if (!timePick) {
+			return;
+		}
+
+		const modePick = await quickInputService.pick<ISummaryModeQuickPickItem>(
+			[
+				{ label: localize('summary.mode.simple', "Simple"), description: localize('summary.mode.simple.desc', "Brief progress overview — what was worked on and status"), mode: SummaryMode.Simple },
+				{ label: localize('summary.mode.detailed', "Detailed"), description: localize('summary.mode.detailed.desc', "Full analysis with decisions, trade-offs, and implementation details"), mode: SummaryMode.Detailed },
+			],
+			{ placeHolder: localize('summary.mode.placeholder', "Select summary style") }
+		);
+
+		if (!modePick) {
+			return;
+		}
+
+		const input = new WorkItemSummaryEditorInput(timePick.timeRange, modePick.mode);
+		await editorService.openEditor(input);
 	}
 });

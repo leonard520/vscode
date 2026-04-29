@@ -8,7 +8,7 @@ import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ISession } from '../../sessions/common/session.js';
-import { ILinkedGitHubIssue, IWorkItem, WorkItemPriority, WorkItemStatus } from './workItem.js';
+import { ILinkedGitHubIssue, IWorkItem, IWorkItemDiscussion, WorkItemPriority, WorkItemStatus } from './workItem.js';
 
 export interface IWorkItemChangeEvent {
 	readonly added: readonly IWorkItem[];
@@ -83,4 +83,12 @@ export interface IWorkItemService {
 
 	/** Create a new agent session for a work item, using its working directory. */
 	createSessionForWorkItem(workItemId: string): Promise<ISession>;
+
+	// Discussion entries
+
+	/** Add a discussion entry to a work item. Returns the created discussion. */
+	addDiscussion(workItemId: string, body: string): IWorkItemDiscussion;
+
+	/** Update a discussion entry (e.g. mark as synced or edit body). */
+	updateDiscussion(workItemId: string, discussionId: string, changes: Partial<Pick<IWorkItemDiscussion, 'body' | 'syncedToGitHub'>>): void;
 }

@@ -18,6 +18,11 @@ import { EditorInput } from '../../../../workbench/common/editor/editorInput.js'
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { WorkItemEditorInput, WORK_ITEM_EDITOR_INPUT_ID } from './workItemEditorInput.js';
 import { WorkItemDetailEditorPane } from './workItemDetailEditorPane.js';
+import { WorkItemSummaryEditorInput, WORK_ITEM_SUMMARY_EDITOR_INPUT_ID } from './workItemSummaryEditorInput.js';
+import { WorkItemSummaryEditorPane } from './workItemSummaryEditorPane.js';
+import { SummaryTimeRange } from './workItemSummaryGenerator.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IWorkItemSyncService, WorkItemSyncService } from './workItemSyncService.js';
 import './workItemsActions.js';
 
 const workItemsViewIcon = registerIcon('work-items-icon', Codicon.checklist, localize('workItemsViewIcon', 'Icon for Work Items View'));
@@ -95,5 +100,54 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 	WORK_ITEM_EDITOR_INPUT_ID,
 	WorkItemEditorInputSerializer
 );
+
+//#endregion
+
+//#region Work Item Summary Editor
+
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(
+		WorkItemSummaryEditorPane,
+		WorkItemSummaryEditorPane.ID,
+		localize('workItemSummaryEditor', "Work Item Summary Editor")
+	),
+	[
+		new SyncDescriptor(WorkItemSummaryEditorInput)
+	]
+);
+
+class WorkItemSummaryEditorInputSerializer implements IEditorSerializer {
+
+	canSerialize(editorInput: EditorInput): boolean {
+		return editorInput instanceof WorkItemSummaryEditorInput;
+	}
+
+	serialize(input: WorkItemSummaryEditorInput): string {
+		return JSON.stringify({ timeRange: input.timeRange });
+	}
+
+	deserialize(_instantiationService: IInstantiationService, serialized: string): WorkItemSummaryEditorInput | undefined {
+		try {
+			const data = JSON.parse(serialized);
+			if (data?.timeRange) {
+				return new WorkItemSummaryEditorInput(data.timeRange as SummaryTimeRange);
+			}
+		} catch {
+			// ignore
+		}
+		return undefined;
+	}
+}
+
+Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(
+	WORK_ITEM_SUMMARY_EDITOR_INPUT_ID,
+	WorkItemSummaryEditorInputSerializer
+);
+
+//#endregion
+
+//#region Work Item Sync Service
+
+registerSingleton(IWorkItemSyncService, WorkItemSyncService, InstantiationType.Delayed);
 
 //#endregion

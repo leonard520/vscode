@@ -8,6 +8,21 @@ import { URI } from '../../../../base/common/uri.js';
 import { ISession } from '../../sessions/common/session.js';
 
 /**
+ * A locally generated discussion entry for a work item.
+ * Can optionally be synced to a linked GitHub issue as a comment.
+ */
+export interface IWorkItemDiscussion {
+	/** Unique ID (UUID). */
+	readonly id: string;
+	/** ISO timestamp of when this discussion was created. */
+	readonly createdAt: string;
+	/** Markdown body of the discussion. */
+	readonly body: string;
+	/** Whether this discussion has been synced to GitHub as a comment. */
+	readonly syncedToGitHub: boolean;
+}
+
+/**
  * Status of a work item. Mirrors GitHub Issue states.
  */
 export const enum WorkItemStatus {
@@ -66,6 +81,8 @@ export interface IWorkItemData {
 	readonly sessionIds: readonly string[];
 	/** Last session explicitly viewed for this work item. */
 	readonly activeSessionId?: string;
+	/** Locally generated discussion entries. */
+	readonly discussions?: readonly IWorkItemDiscussion[];
 }
 
 /**
@@ -97,4 +114,6 @@ export interface IWorkItem {
 	readonly updatedAt: IObservable<Date>;
 	/** Sessions associated with this work item. */
 	readonly sessions: IObservable<readonly ISession[]>;
+	/** Locally generated discussion entries (from session summaries). */
+	readonly discussions: IObservable<readonly IWorkItemDiscussion[]>;
 }
