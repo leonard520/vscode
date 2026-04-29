@@ -2,7 +2,7 @@
 
 > **Status**: Implemented
 > **Scope**: Agents Window (`src/vs/sessions/`)
-> **Last Updated**: 2026-04-28
+> **Last Updated**: 2026-04-29
 
 ---
 
@@ -15,9 +15,10 @@
 5. [Service Behavior](#5-service-behavior)
 6. [UI Integration](#6-ui-integration)
 7. [GitHub Integration](#7-github-integration)
-8. [Session Restore and Reconciliation](#8-session-restore-and-reconciliation)
-9. [Notable Differences from the Initial Draft](#9-notable-differences-from-the-initial-draft)
-10. [Revision History](#10-revision-history)
+8. [Session Summaries and Work Summaries](#8-session-summaries-and-work-summaries)
+9. [Session Restore and Reconciliation](#9-session-restore-and-reconciliation)
+10. [Notable Differences from the Initial Draft](#10-notable-differences-from-the-initial-draft)
+11. [Revision History](#11-revision-history)
 
 ---
 
@@ -80,6 +81,13 @@ This means the work-item feature is an orchestration layer, not a fork of the se
 | `services/workItems/common/githubConfig.ts` | `IWorkItemGitHubConfigService` contract for configured GitHub repositories |
 | `services/workItems/browser/githubConfigService.ts` | Profile-scoped GitHub repository configuration backed by storage and `IGitHubService` |
 
+### 3.1a Summary and sync services
+
+| File | Responsibility |
+|------|----------------|
+| `contrib/workItems/browser/workItemSyncService.ts` | `IWorkItemSyncService` — two-phase Map-Reduce LLM pipeline for generating structured summaries from a single work item's sessions. Produces discussion entries that can be synced to GitHub. |
+| `contrib/workItems/browser/workItemSummaryGenerator.ts` | Time-range work summary framework — `ISummaryStrategy` interface, `TemplateSummaryStrategy` (quick fallback), `LLMSummaryStrategy` (AI-powered), `SummaryTimeRange`, `SummaryMode`, and data-collection helpers (`computeDateRange`, `collectSummaryInput`). |
+
 ### 3.2 Sidebar work-items UI
 
 | File | Responsibility |
@@ -87,8 +95,10 @@ This means the work-item feature is an orchestration layer, not a fork of the se
 | `contrib/workItems/browser/workItems.contribution.ts` | Registers the sidebar container and default Work Items view |
 | `contrib/workItems/browser/workItemsView.ts` | `FilterViewPane` wrapper, filter widget, and badge updates |
 | `contrib/workItems/browser/workItemsList.ts` | Tree rendering, section grouping, filter logic, context menus, drag-and-drop, and row affordances |
-| `contrib/workItems/browser/workItemsActions.ts` | Command surface for create/edit/delete, GitHub linking, working directory, status, priority, and new session |
+| `contrib/workItems/browser/workItemsActions.ts` | Command surface for create/edit/delete, GitHub linking, working directory, status, priority, new session, generate discussion, and generate work summary |
 | `contrib/workItems/browser/sessionTabBar.ts` | Horizontal per-work-item session tab strip shown above chat content |
+| `contrib/workItems/browser/workItemSummaryEditorInput.ts` | `EditorInput` carrying `SummaryTimeRange` and `SummaryMode` for the summary editor pane |
+| `contrib/workItems/browser/workItemSummaryEditorPane.ts` | Editor pane that renders time-range work summaries with strategy selection, LLM generation, and copy support |
 
 ### 3.3 Cross-feature integrations
 
@@ -108,8 +118,7 @@ The current implementation is exercised by targeted tests under:
 
 - `services/workItems/test/browser/workItemService.test.ts`
 - `contrib/workItems/test/browser/sessionTabBar.test.ts`
-- `contrib/workItems/test/browser/workItemsList.test.ts`
-- `contrib/chat/test/browser/newChatViewPane.test.ts`
+- `contrib/workItems/test/browser/workItemsList.test.ts`| `contrib/workItems/test/browser/workItemSyncService.test.ts`- `contrib/chat/test/browser/newChatViewPane.test.ts`
 - `contrib/chat/test/browser/sessionWorkspacePicker.test.ts`
 - `contrib/sessions/test/browser/sessionsTitleBarWidget.test.ts`
 - `contrib/workspace/test/browser/workspaceFolderManagement.test.ts`
@@ -125,8 +134,18 @@ The current implementation is exercised by targeted tests under:
 - Stable metadata: `id`, `title`, `description`, `status`, `priority`, `labels`, `linkedIssue`, `workingDirectory`, `createdAt`, `updatedAt`.
 - Session ownership: `sessionIds`.
 - Session restore preference: `activeSessionId`.
+- Discussion entries: `discussions` — an array of `IWorkItemDiscussion` objects (locally generated session summaries, optionally synced to GitHub).
 
-`IWorkItem` is the reactive model the UI consumes. It exposes observables for all mutable fields and resolves `sessionIds` into `sessions: IObservable<readonly ISession[]>`.
+`IWorkItem` is the reactive model the UI consumes. It exposes observables for all mutable fields, resolves `sessionIds` into `sessions: IObservable<readonly ISession[]>`, and exposes `discussions: IObservable<readonly IWorkItemDiscussion[]>`.
+
+### 4.1a Discussion model
+
+`IWorkItemDiscussion` represents a locally generated discussion entry:
+
+- `id` — UUID.
+- `createdAt` — ISO timestamp.
+- `body` — Markdown content (typically an LLM-generated session summary).
+- `syncedToGitHub` — Whether this entry has been posted as a GitHub issue comment.
 
 ### 4.2 Storage keys
 
@@ -161,6 +180,7 @@ This design allows the work-item layer to survive session replacement while leav
 - Explicit session association via `addSession` and `removeSession`.
 - Per-work-item preferred-history tracking via `setPreferredSessionForWorkItem`.
 - Work-item-scoped session creation via `createSessionForWorkItem`.
+- Discussion management via `addDiscussion` and `updateDiscussion`.
 
 ### 5.2 Active work item as the orchestration source
 
@@ -227,7 +247,6 @@ Each row shows the current implemented affordances:
 
 - Status icon.
 - Work-item title.
-- Toolbar from `Menus.WorkItemToolbar`.
 - Linked issue badge.
 - Session count summary.
 - Working-directory basename.
@@ -279,6 +298,19 @@ This is important during restore and early new-session flows because workspace-s
 
 ---
 
+### 5.5 Work Item Sync Service
+
+`IWorkItemSyncService` is a separate service registered as `WorkItemSyncService` (`InstantiationType.Delayed`). It generates structured summaries from a work item's sessions using a two-phase Map-Reduce LLM pipeline:
+
+1. **Phase 1 (Map):** For each session, collect raw conversation content (up to 80 000 chars, 120 exchanges) using a 6-strategy cascade (loaded chat model → main chat model → individual chats → persistence load for each). An LLM extracts structured insights per session: goals, approach, decisions, implementation, verification, and follow-ups.
+2. **Phase 2 (Reduce):** All session insights are fed to a second LLM call that synthesizes them into a single comprehensive work-item summary covering background, problem statement, proposals, trade-offs, decisions, implementation details, verification, and open items.
+
+When no LLM is available the service falls back to a metadata-only summary (session titles, statuses, and file-change counts).
+
+The generated summary is stored as a discussion entry via `IWorkItemService.addDiscussion` and can later be synced to a linked GitHub issue as a comment.
+
+---
+
 ## 7. GitHub Integration
 
 The GitHub portion of the feature is implemented as action-driven enhancement, not as a dedicated sidebar sub-system.
@@ -300,6 +332,8 @@ The GitHub portion of the feature is implemented as action-driven enhancement, n
 - Create a GitHub issue from the work item
 - Open the linked issue in the browser
 - Create a new agent session for the work item
+- Generate discussion from sessions (LLM-based session summary stored as a discussion entry)
+- Generate work summary (opens the summary editor pane with time-range and mode pickers)
 - Delete work item
 - Configure GitHub repositories
 
@@ -317,15 +351,37 @@ Closing or reopening a linked work item also propagates the issue state back thr
 
 ---
 
-## 8. Session Restore and Reconciliation
+## 8. Session Summaries and Work Summaries
+
+The latest implementation adds two complementary summarization capabilities.
+
+### 8.1 Per-work-item session summary (discussion generation)
+
+The "Generate Discussion from Sessions" action (`workItems.generateDiscussionFromSessions`) uses `IWorkItemSyncService` to produce a structured summary of a single work item's sessions. The result is stored as an `IWorkItemDiscussion` entry and shown in the work-item detail editor under the "Discussion" section (before any GitHub comments). Each discussion entry can be edited inline and optionally synced to the linked GitHub issue.
+
+### 8.2 Time-range work summary (summary editor)
+
+The "Generate Work Summary" action (`workItems.generateSummary`) opens a dedicated `WorkItemSummaryEditorPane`. The user first picks a time range (Today / This Week / This Month) and a mode (Simple / Detailed), then the editor:
+
+1. Collects a `ISummaryInput` snapshot from all work items with activity in the selected date range via `collectSummaryInput`.
+2. Delegates to an `ISummaryStrategy`:
+   - **`TemplateSummaryStrategy`** — a fast, no-LLM fallback that produces a structured markdown listing of work items grouped by status, with session and file-change metrics.
+   - **`LLMSummaryStrategy`** — sends the collected data to a Copilot-vendor language model with mode-specific system prompts. In *Simple* mode the prompt targets a 150–400 word objective overview grouped by theme. In *Detailed* mode it produces a 500–1 500 word technical narrative covering background, decisions, trade-offs, and open items. Related work items are merged under shared themes rather than listed individually.
+3. Renders the resulting markdown in the editor pane with a copy-to-clipboard button.
+
+The summary editor is registered with a serializer so it can be restored across window reloads.
+
+---
+
+## 9. Session Restore and Reconciliation
 
 This is the most important area where the current implementation diverges from the initial draft.
 
-### 8.1 Pending-session tracking
+### 9.1 Pending-session tracking
 
 Freshly created sessions are inserted into `_pendingSessions` immediately so the work item can reference them before the provider settles or replaces the temporary session.
 
-### 8.2 Replacement handling
+### 9.2 Replacement handling
 
 When `ISessionsManagementService.onDidReplaceSession` fires, `WorkItemService`:
 
@@ -334,7 +390,7 @@ When `ISessionsManagementService.onDidReplaceSession` fires, `WorkItemService`:
 - Re-resolves `IWorkItem.sessions`.
 - Persists the updated work-item records.
 
-### 8.3 Startup restore alignment
+### 9.3 Startup restore alignment
 
 When persisted work items load before provider sessions arrive, the service later realigns them by:
 
@@ -343,7 +399,7 @@ When persisted work items load before provider sessions arrive, the service late
 - Restricting reconciliation to sessions in the same working directory.
 - Refusing to attach a candidate session that is already owned by another work item.
 
-### 8.4 Preferred-session reopening
+### 9.4 Preferred-session reopening
 
 If the active work item owns sessions but the globally active session is not one of them, `WorkItemService` reopens the work item's preferred session unless the UI is explicitly in the global new-session state (`IsNewChatSessionContext`).
 
@@ -352,13 +408,13 @@ This preserves two distinct behaviors:
 - Normal work-item browsing should snap back to that work item's chosen history.
 - The explicit `New Session` flow may temporarily diverge from work-item history.
 
-### 8.5 Active-session remembering
+### 9.5 Active-session remembering
 
 Whenever the active session belongs to the active work item, the service records it as that work item's preferred session. This allows restore to return to the user-selected history tab instead of simply picking the newest session.
 
 ---
 
-## 9. Notable Differences from the Initial Draft
+## 10. Notable Differences from the Initial Draft
 
 The original draft is stale in several important ways. The current implementation differs as follows:
 
@@ -372,10 +428,11 @@ The original draft is stale in several important ways. The current implementatio
 
 ---
 
-## 10. Revision History
+## 11. Revision History
 
 | Date | Author | Notes |
 |------|--------|-------|
 | 2026-04-24 | Design | Initial design draft |
 | 2026-04-28 | Architect | Rewrote the document to match the implemented work-items architecture, restore behavior, and UI integrations in `src/vs/sessions` |
+| 2026-04-29 | Architect | Added discussion entries, `IWorkItemSyncService` (Map-Reduce session summarization), `WorkItemSummaryEditorPane` (time-range work summaries with Simple/Detailed modes), `ISummaryStrategy` framework, and new actions (Generate Discussion, Generate Work Summary). Renumbered sections 8–10 → 9–11. |
 

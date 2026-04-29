@@ -36,7 +36,10 @@ export class ChatSummarizerProvider implements vscode.ChatSummarizer {
 	): Promise<string> {
 
 		const { turns } = this.instantiationService.invokeFunction(accessor => addHistoryToConversation(accessor, context.history));
-		if (turns.filter(t => t.responseStatus === TurnStatus.Success).length === 0) {
+		const successTurns = turns.filter(t => t.responseStatus === TurnStatus.Success);
+		this.logService.info(`[ChatSummarizerProvider] Starting summary: ${turns.length} total turns, ${successTurns.length} successful turns`);
+		if (successTurns.length === 0) {
+			this.logService.info(`[ChatSummarizerProvider] No successful turns to summarize, returning empty`);
 			return '';
 		}
 
@@ -71,6 +74,7 @@ export class ChatSummarizerProvider implements vscode.ChatSummarizer {
 				token
 			);
 			allMessages = rendered.messages;
+			this.logService.info(`[ChatSummarizerProvider] Rendered ${allMessages.length} prompt messages for summarization`);
 		} catch (err) {
 			this.logService.error(`Failed to render conversation summarization prompt: ${err instanceof Error ? err.message : String(err)}`);
 			return '';
@@ -110,6 +114,9 @@ export class ChatSummarizerProvider implements vscode.ChatSummarizer {
 			if (summary.match(/^".*"$/)) {
 				summary = summary.slice(1, -1);
 			}
+			const preview = summary.length > 500 ? summary.substring(0, 500) + '...' : summary;
+			this.logService.info(`[ChatSummarizerProvider] Summary produced: ${summary.length} chars`);
+			this.logService.trace(`[ChatSummarizerProvider] Summary preview: ${preview}`);
 			return summary;
 		} else {
 			this.logService.error(`Failed to fetch conversation summary because of response type (${response.type}) and reason (${response.reason})`);

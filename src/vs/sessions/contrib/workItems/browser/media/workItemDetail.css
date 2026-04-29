@@ -328,3 +328,70 @@
 .work-item-detail-editor .work-item-detail-cancel-button:hover {
 	background-color: var(--vscode-button-secondaryHoverBackground);
 }
+
+/* Local discussions */
+
+.work-item-detail-editor .work-item-detail-local-discussion {
+	border-left: 3px solid var(--vscode-charts-blue, var(--vscode-textLink-foreground));
+}
+
+.work-item-detail-editor .work-item-detail-discussion-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 4px;
+	padding-top: 4px;
+	border-top: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border));
+}
+
+.work-item-detail-editor .work-item-detail-action-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 10px;
+	border: 1px solid var(--vscode-button-secondaryBorder, var(--vscode-panel-border));
+	border-radius: 4px;
+	background-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.work-item-detail-editor .work-item-detail-action-button:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.work-item-detail-editor .work-item-detail-action-button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.work-item-detail-editor .work-item-detail-action-button .codicon {
+	font-size: 14px;
+}
+
+.work-item-detail-editor .work-item-detail-synced-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 1px 6px;
+	border-radius: 8px;
+	font-size: 10px;
+	background-color: var(--vscode-charts-green);
+	color: var(--vscode-editor-background);
+}
+
+/* GitHub comments sub-header */
+
+.work-item-detail-editor .work-item-detail-gh-section-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--vscode-descriptionForeground);
+	margin-top: 12px;
+	margin-bottom: 4px;
+	padding-top: 8px;
+	border-top: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border));
+}

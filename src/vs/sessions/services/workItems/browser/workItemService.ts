@@ -16,7 +16,7 @@ import { bindContextKey } from '../../../../platform/observable/common/platformO
 import { ActiveWorkItemHasLinkedIssueContext, ActiveWorkItemHasWorkingDirectoryContext, ActiveWorkItemPriorityContext, ActiveWorkItemSessionCountContext, ActiveWorkItemStatusContext, HasActiveWorkItemContext, IsNewChatSessionContext } from '../../../common/contextkeys.js';
 import { ISession } from '../../sessions/common/session.js';
 import { ISessionsManagementService } from '../../sessions/common/sessionsManagement.js';
-import { ILinkedGitHubIssue, IWorkItem, IWorkItemData, WorkItemPriority, WorkItemStatus } from '../common/workItem.js';
+import { ILinkedGitHubIssue, IWorkItem, IWorkItemData, IWorkItemDiscussion, WorkItemPriority, WorkItemStatus } from '../common/workItem.js';
 import { IWorkItemChangeEvent, IWorkItemCreateData, IWorkItemService, IWorkItemUpdateData } from '../common/workItemService.js';
 
 const WORK_ITEMS_STORAGE_KEY = 'workItems.data';
@@ -36,6 +36,7 @@ class WorkItemModel implements IWorkItem {
 	readonly workingDirectory: ISettableObservable<URI | undefined>;
 	readonly updatedAt: ISettableObservable<Date>;
 	readonly sessions: ISettableObservable<readonly ISession[]>;
+	readonly discussions: ISettableObservable<readonly IWorkItemDiscussion[]>;
 
 	private _sessionIds: string[];
 	private _activeSessionId: string | undefined;
@@ -55,6 +56,7 @@ class WorkItemModel implements IWorkItem {
 		this.workingDirectory = observableValue(`workItem.workingDirectory.${this.id}`, data.workingDirectory ? URI.parse(data.workingDirectory) : undefined);
 		this.updatedAt = observableValue(`workItem.updatedAt.${this.id}`, new Date(data.updatedAt));
 		this.sessions = observableValue(`workItem.sessions.${this.id}`, []);
+		this.discussions = observableValue(`workItem.discussions.${this.id}`, data.discussions ? [...data.discussions] : []);
 	}
 
 	get sessionIds(): readonly string[] {
@@ -129,6 +131,7 @@ class WorkItemModel implements IWorkItem {
 			updatedAt: this.updatedAt.get().toISOString(),
 			sessionIds: [...this._sessionIds],
 			activeSessionId: this._activeSessionId,
+			discussions: [...this.discussions.get()],
 		};
 	}
 }
@@ -394,6 +397,55 @@ export class WorkItemService extends Disposable implements IWorkItemService {
 		this.addSession(workItemId, session.sessionId);
 
 		return session;
+	}
+
+	// #endregion
+
+	// #region Discussions
+
+	addDiscussion(workItemId: string, body: string): IWorkItemDiscussion {
+		const model = this._workItems.get(workItemId);
+		if (!model) {
+			throw new Error(`Work item not found: ${workItemId}`);
+		}
+
+		const discussion: IWorkItemDiscussion = {
+			id: generateUuid(),
+			createdAt: new Date().toISOString(),
+			body,
+			syncedToGitHub: false,
+		};
+
+		model.discussions.set([...model.discussions.get(), discussion], undefined);
+		model.updatedAt.set(new Date(), undefined);
+		this._saveToStorage();
+
+		this._onDidChangeWorkItems.fire({ added: [], removed: [], changed: [model] });
+		this._logService.debug(LOG_PREFIX, `Added discussion to work item "${model.title.get()}" (${workItemId})`);
+
+		return discussion;
+	}
+
+	updateDiscussion(workItemId: string, discussionId: string, changes: Partial<Pick<IWorkItemDiscussion, 'body' | 'syncedToGitHub'>>): void {
+		const model = this._workItems.get(workItemId);
+		if (!model) {
+			this._logService.warn(LOG_PREFIX, `Cannot update discussion on unknown work item: ${workItemId}`);
+			return;
+		}
+
+		const discussions = [...model.discussions.get()];
+		const idx = discussions.findIndex(d => d.id === discussionId);
+		if (idx < 0) {
+			this._logService.warn(LOG_PREFIX, `Discussion not found: ${discussionId}`);
+			return;
+		}
+
+		discussions[idx] = { ...discussions[idx], ...changes };
+		model.discussions.set(discussions, undefined);
+		model.updatedAt.set(new Date(), undefined);
+		this._saveToStorage();
+
+		this._onDidChangeWorkItems.fire({ added: [], removed: [], changed: [model] });
 	}
 
 	// #endregion

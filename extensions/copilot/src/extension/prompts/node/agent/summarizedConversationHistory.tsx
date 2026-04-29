@@ -48,106 +48,53 @@ export interface ConversationHistorySummarizationPromptProps extends SummarizedA
 }
 
 const SummaryPrompt = <>
-	Your task is to create a comprehensive, detailed summary of the entire conversation that captures all essential information needed to seamlessly continue the work without any loss of context. This summary will be used to compact the conversation while preserving critical technical details, decisions, and progress.<br />
+	Your task is to create a comprehensive, intelligent summary of the entire conversation. This summary replaces the full conversation history, so it must capture everything needed to seamlessly continue the work without any loss of context.<br />
 
-	## Recent Context Analysis<br />
+	## How to Summarize<br />
 
-	Pay special attention to the most recent agent commands and tool executions that led to this summarization being triggered. Include:<br />
-	- **Last Agent Commands**: What specific actions/tools were just executed<br />
-	- **Tool Results**: Key outcomes from recent tool calls (truncate if very long, but preserve essential information)<br />
-	- **Immediate State**: What was the system doing right before summarization<br />
-	- **Triggering Context**: What caused the token budget to be exceeded<br />
+	Read the full conversation carefully and produce a summary that a new reader could use to pick up exactly where things left off. Rather than filling in a rigid template, use your judgment to determine what matters most in THIS particular conversation and organize accordingly.<br />
 
-	## Analysis Process<br />
+	Before writing the final summary, wrap your analysis in `&lt;analysis&gt;` tags. Walk through the conversation chronologically, identify the key phases and turning points, and note which of the aspects below are present and important.<br />
 
-	Before providing your final summary, wrap your analysis in `&lt;analysis&gt;` tags to organize your thoughts systematically:<br />
+	## Aspects to Extract<br />
 
-	1. **Chronological Review**: Go through the conversation chronologically, identifying key phases and transitions<br />
-	2. **Intent Mapping**: Extract all explicit and implicit user requests, goals, and expectations<br />
-	3. **Technical Inventory**: Catalog all technical concepts, tools, frameworks, and architectural decisions<br />
-	4. **Code Archaeology**: Document all files, functions, and code patterns that were discussed or modified<br />
-	5. **Progress Assessment**: Evaluate what has been completed vs. what remains pending<br />
-	6. **Context Validation**: Ensure all critical information for continuation is captured<br />
-	7. **Recent Commands Analysis**: Document the specific agent commands and tool results from the most recent operations<br />
-
-	## Summary Structure<br />
-
-	Your summary must include these sections in order, following the exact format below:<br />
+	Below is a menu of aspects you should look for. **Include every aspect that is actually present** in the conversation — skip any that do not apply. For each included aspect, provide enough detail that no critical information is lost.<br />
 
 	<Tag name='analysis'>
-		[Chronological Review: Walk through conversation phases: initial request → exploration → implementation → debugging → current state]<br />
-		[Intent Mapping: List each explicit user request with message context]<br />
-		[Technical Inventory: Catalog all technologies, patterns, and decisions mentioned]<br />
-		[Code Archaeology: Document every file, function, and code change discussed]<br />
-		[Progress Assessment: What's done vs. pending with specific status]<br />
-		[Context Validation: Verify all continuation context is captured]<br />
-		[Recent Commands Analysis: Last agent commands executed, tool results (truncated if long), immediate pre-summarization state]<br />
+		[Walk through the conversation chronologically. Identify phases, turning points, and which aspects below are present. Note what matters most for continuation.]<br />
 	</Tag><br />
 
 	<Tag name='summary'>
-		1. Conversation Overview:<br />
-		- Primary Objectives: [All explicit user requests and overarching goals with exact quotes]<br />
-		- Session Context: [High-level narrative of conversation flow and key phases]<br />
-		- User Intent Evolution: [How user's needs or direction changed throughout conversation]<br />
+		**Background &amp; Context** — Why did this conversation start? What is the broader context, project, or system involved? Include environment details, tech stack, and any constraints established early on.<br />
 
-		2. Technical Foundation:<br />
-		- [Core Technology 1]: [Version/details and purpose]<br />
-		- [Framework/Library 2]: [Configuration and usage context]<br />
-		- [Architectural Pattern 3]: [Implementation approach and reasoning]<br />
-		- [Environment Detail 4]: [Setup specifics and constraints]<br />
+		**Problem / Question** — What is the core problem, question, or goal the user brought up? State it precisely, using the user's own words where possible. If the problem evolved during the conversation, trace that evolution.<br />
 
-		3. Codebase Status:<br />
-		- [File Name 1]:<br />
-		- Purpose: [Why this file is important to the project]<br />
-		- Current State: [Summary of recent changes or modifications]<br />
-		- Key Code Segments: [Important functions/classes with brief explanations]<br />
-		- Dependencies: [How this relates to other components]<br />
-		- [File Name 2]:<br />
-		- Purpose: [Role in the project]<br />
-		- Current State: [Modification status]<br />
-		- Key Code Segments: [Critical code blocks]<br />
-		- [Additional files as needed]<br />
+		**Exploration &amp; Analysis** — What was investigated, researched, or analyzed? Include key findings, data points, code inspections, error messages, and diagnostic steps. Preserve exact filenames, function names, error text, and technical details.<br />
 
-		4. Problem Resolution:<br />
-		- Issues Encountered: [Technical problems, bugs, or challenges faced]<br />
-		- Solutions Implemented: [How problems were resolved and reasoning]<br />
-		- Debugging Context: [Ongoing troubleshooting efforts or known issues]<br />
-		- Lessons Learned: [Important insights or patterns discovered]<br />
+		**Proposals &amp; Solutions** — What approaches, designs, or solutions were proposed? Describe each proposal with enough detail to understand it independently. If multiple options were discussed, list them all.<br />
 
-		5. Progress Tracking:<br />
-		- Completed Tasks: [What has been successfully implemented with status indicators]<br />
-		- Partially Complete Work: [Tasks in progress with current completion status]<br />
-		- Validated Outcomes: [Features or code confirmed working through testing]<br />
+		**Trade-offs &amp; Comparisons** — What trade-offs were weighed? What are the pros and cons of different approaches? Include performance, complexity, maintainability, compatibility, and any other dimensions that were discussed.<br />
 
-		6. Active Work State:<br />
-		- Current Focus: [Precisely what was being worked on in most recent messages]<br />
-		- Recent Context: [Detailed description of last few conversation exchanges]<br />
-		- Working Code: [Code snippets being modified or discussed recently]<br />
-		- Immediate Context: [Specific problem or feature being addressed before summary]<br />
+		**Decisions** — What was decided, and why? Capture the reasoning behind each decision. If something was explicitly rejected, note what and why.<br />
 
-		7. Recent Operations:<br />
-		- Last Agent Commands: [Specific tools/actions executed just before summarization with exact command names]<br />
-		- Tool Results Summary: [Key outcomes from recent tool executions - truncate long results but keep essential info]<br />
-		- Pre-Summary State: [What the agent was actively doing when token budget was exceeded]<br />
-		- Operation Context: [Why these specific commands were executed and their relationship to user goals]<br />
+		**Implementation &amp; Changes** — What code, configuration, or files were actually created or modified? For each change, note the file, what was changed, and the current state. Include key code patterns or snippets that are essential for continuation.<br />
 
-		8. Continuation Plan:<br />
-		- [Pending Task 1]: [Details and specific next steps with verbatim quotes]<br />
-		- [Pending Task 2]: [Requirements and continuation context]<br />
-		- [Priority Information]: [Which tasks are most urgent or logically sequential]<br />
-		- [Next Action]: [Immediate next step with direct quotes from recent messages]<br />
+		**Verification &amp; Testing** — How was (or should) the work be verified? Include test commands run, test results, validation steps taken, and any remaining verification that is still needed.<br />
+
+		**Open Issues &amp; Blockers** — What problems remain unsolved? What errors or failures are still being investigated? Include exact error messages and debugging context.<br />
+
+		**Follow-ups &amp; Next Steps** — What work remains to be done? List specific pending tasks with enough context to act on them. Include priority order and any dependencies between tasks. Quote the user's exact words for pending requests.<br />
+
+		**Recent Operations** — What were the most recent agent actions/tool calls right before this summary was triggered? What results did they produce? What was the agent actively doing? This section ensures the immediate workflow state is not lost.<br />
 	</Tag><br />
 
-	## Quality Guidelines<br />
+	## Guidelines<br />
 
-	- **Precision**: Include exact filenames, function names, variable names, and technical terms<br />
-	- **Completeness**: Capture all context needed to continue without re-reading the full conversation<br />
-	- **Clarity**: Write for someone who needs to pick up exactly where the conversation left off<br />
-	- **Verbatim Accuracy**: Use direct quotes for task specifications and recent work context<br />
-	- **Technical Depth**: Include enough detail for complex technical decisions and code patterns<br />
-	- **Logical Flow**: Present information in a way that builds understanding progressively<br />
-
-	This summary should serve as a comprehensive handoff document that enables seamless continuation of all active work streams while preserving the full technical and contextual richness of the original conversation.<br />
+	- **Be adaptive**: Spend more space on what matters most for THIS conversation. A debugging session needs different emphasis than a design discussion or a multi-file refactor.<br />
+	- **Preserve precision**: Include exact filenames, function names, variable names, error messages, command outputs, and technical terms. Do not paraphrase when precision matters.<br />
+	- **Use direct quotes** for the user's task specifications, requirements, and recent instructions.<br />
+	- **Capture reasoning**, not just conclusions. The "why" behind decisions is as important as the "what".<br />
+	- **Ensure continuability**: A reader of this summary should be able to continue the work without asking "what was the context?" or "what did we decide about X?"<br />
 </>;
 
 /**
@@ -172,18 +119,18 @@ export class ConversationHistorySummarizationPrompt extends PromptElement<Conver
 				{history}
 				{this.props.workingNotebook && <WorkingNotebookSummary priority={this.props.priority - 2} notebook={this.props.workingNotebook} />}
 				<UserMessage priority={this.props.priority}>
-					Summarize the conversation history so far, paying special attention to the most recent agent commands and tool results that triggered this summarization. Structure your summary using the enhanced format provided in the system message.<br />
+					Summarize the conversation history so far. Use the aspects listed in the system message as a guide — include every aspect that is present, skip those that are not. Adapt the depth and emphasis to what matters most in this particular conversation.<br />
 					{isOpus && <>
 						<br />
 						IMPORTANT: Do NOT call any tools. Your only task is to generate a text summary of the conversation. Do not attempt to execute any actions or make any tool calls.<br />
 					</>}
-					Focus particularly on:<br />
-					- The specific agent commands/tools that were just executed<br />
-					- The results returned from these recent tool calls (truncate if very long but preserve key information)<br />
-					- What the agent was actively working on when the token budget was exceeded<br />
-					- How these recent operations connect to the overall user goals<br />
+					Pay special attention to:<br />
+					- Decisions made and the reasoning behind them<br />
+					- Trade-offs that were discussed or remain unresolved<br />
+					- The most recent agent actions, tool calls, and their results<br />
+					- Open questions, blockers, and concrete next steps<br />
 
-					Include all important tool calls and their results as part of the appropriate sections, with special emphasis on the most recent operations.
+					The goal is a summary that lets someone continue this work without losing any important context, reasoning, or progress.
 				</UserMessage>
 			</>
 		);
@@ -557,6 +504,12 @@ class ConversationHistorySummarizer {
 	) { }
 
 	async summarizeHistory(): Promise<{ summary: string; toolCallRoundId: string; thinking?: ThinkingData; usage?: APIUsage; promptTokenDetails?: readonly ChatResultPromptTokenDetail[]; model?: string; summarizationMode?: string; numRounds?: number; numRoundsSinceLastSummarization?: number; durationMs?: number }> {
+		const historyTurnCount = this.props.promptContext.history.length;
+		const currentRoundCount = this.props.promptContext.toolCallRounds?.length ?? 0;
+		const totalToolCalls = this.props.promptContext.history.reduce((sum, turn) => sum + turn.rounds.reduce((s, r) => s + r.toolCalls.length, 0), 0)
+			+ (this.props.promptContext.toolCallRounds?.reduce((s, r) => s + r.toolCalls.length, 0) ?? 0);
+		this.logService.info(`[ConversationHistorySummarizer] Starting summarization: ${historyTurnCount} history turns, ${currentRoundCount} current-turn rounds, ${totalToolCalls} total tool calls, model=${this.props.endpoint.model}`);
+
 		// Execute pre-compact hook before summarization to allow hooks to archive transcripts or perform cleanup
 		await this.executePreCompactHook();
 
@@ -573,8 +526,12 @@ class ConversationHistorySummarizer {
 
 		const summary = await summaryPromise;
 		const { numRounds, numRoundsSinceLastSummarization } = computeSummarizationRoundCounts(this.props.promptContext.history, this.props.promptContext.toolCallRounds);
+		const summaryText = summary.result.value;
+		const summaryPreview = summaryText.length > 500 ? summaryText.substring(0, 500) + '...' : summaryText;
+		this.logService.info(`[ConversationHistorySummarizer] Summary produced: mode=${summary.summarizationMode}, length=${summaryText.length} chars, numRounds=${numRounds}, roundsSinceLastSummarization=${numRoundsSinceLastSummarization}, duration=${summary.durationMs}ms`);
+		this.logService.trace(`[ConversationHistorySummarizer] Summary preview: ${summaryPreview}`);
 		return {
-			summary: this.appendTranscriptHint(summary.result.value),
+			summary: this.appendTranscriptHint(summaryText),
 			toolCallRoundId: propsInfo.summarizedToolCallRoundId,
 			thinking: propsInfo.summarizedThinking,
 			usage: summary.result.usage,
@@ -597,20 +554,25 @@ class ConversationHistorySummarizer {
 
 	private async getSummaryWithFallback(propsInfo: ISummarizedConversationHistoryInfo): Promise<SummarizationResult> {
 		const forceMode = this.configurationService.getConfig<string | undefined>(ConfigKey.Advanced.AgentHistorySummarizationMode);
+		this.logService.info(`[ConversationHistorySummarizer] getSummaryWithFallback: forceMode=${forceMode ?? 'none'}, forceSimpleSummary=${!!this.props.forceSimpleSummary}`);
 		if (this.props.forceSimpleSummary && forceMode !== SummaryMode.Full) {
 			// Foreground budget-exceeded recovery — go straight to Simple.
+			this.logService.info(`[ConversationHistorySummarizer] Using Simple mode (forceSimpleSummary)`);
 			return await this.getSummary(SummaryMode.Simple, propsInfo);
 		}
 		if (forceMode === SummaryMode.Simple) {
+			this.logService.info(`[ConversationHistorySummarizer] Using Simple mode (forceMode=simple)`);
 			return await this.getSummary(SummaryMode.Simple, propsInfo);
 		} else {
 			try {
+				this.logService.info(`[ConversationHistorySummarizer] Attempting Full mode`);
 				return await this.getSummary(SummaryMode.Full, propsInfo);
 			} catch (e) {
 				if (isCancellationError(e)) {
 					throw e;
 				}
 
+				this.logService.info(`[ConversationHistorySummarizer] Full mode failed (${e instanceof Error ? e.message : String(e)}), falling back to Simple mode`);
 				return await this.getSummary(SummaryMode.Simple, propsInfo);
 			}
 		}
@@ -664,9 +626,10 @@ class ConversationHistorySummarizer {
 
 		let summarizationPrompt: ChatMessage[];
 		const associatedRequestId = this.props.promptContext.conversation?.getLatestTurn().id;
+		this.logInfo(`Rendering summarization prompt (toolTokens=${toolTokens}, endpoint.maxPromptTokens=${endpoint.modelMaxPromptTokens})...`, mode);
 		try {
 			summarizationPrompt = (await renderPromptElement(this.instantiationService, endpoint, ConversationHistorySummarizationPrompt, { ...propsInfo.props, enableCacheBreakpoints: false, simpleMode: mode === SummaryMode.Simple }, undefined, this.token)).messages;
-			this.logInfo(`summarization prompt rendered in ${stopwatch.elapsed()}ms.`, mode);
+			this.logInfo(`summarization prompt rendered in ${stopwatch.elapsed()}ms, ${summarizationPrompt.length} messages.`, mode);
 		} catch (e) {
 			const budgetExceeded = e instanceof BudgetExceededError;
 			const outcome = budgetExceeded ? 'budget_exceeded' : 'renderError';
@@ -792,6 +755,7 @@ class ConversationHistorySummarizer {
 			!!this.props.maxSummaryTokens
 				? Math.min(this.sizing.tokenBudget, this.props.maxSummaryTokens)
 				: this.sizing.tokenBudget;
+		this.logInfo(`Summary response: ${response.value.length} chars, ${summarySize} tokens (budget ${effectiveBudget} tokens).`, mode);
 		if (summarySize > effectiveBudget) {
 			this.sendSummarizationTelemetry('too_large', response.requestId, this.props.endpoint.model, mode, elapsedTime, response.usage, `${summarySize} tokens exceeds budget ${effectiveBudget}`);
 			this.logInfo(`Summary too large: ${summarySize} tokens (effective budget ${effectiveBudget})`, mode);

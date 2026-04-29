@@ -1,0 +1,130 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.work-item-summary-editor {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow-y: auto;
+	padding: 16px 24px;
+	box-sizing: border-box;
+}
+
+/* Toolbar */
+
+.work-item-summary-editor .work-item-summary-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 16px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border));
+	flex-wrap: wrap;
+}
+
+.work-item-summary-editor .work-item-summary-toolbar select {
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	border: 1px solid var(--vscode-dropdown-border);
+	border-radius: 4px;
+	padding: 4px 8px;
+	font-size: 13px;
+	outline: none;
+}
+
+.work-item-summary-editor .work-item-summary-toolbar select:focus {
+	border-color: var(--vscode-focusBorder);
+}
+
+.work-item-summary-editor .work-item-summary-toolbar button {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 12px;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 4px;
+	font-size: 13px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.work-item-summary-editor .work-item-summary-generate-button {
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.work-item-summary-editor .work-item-summary-generate-button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.work-item-summary-editor .work-item-summary-copy-button {
+	background-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.work-item-summary-editor .work-item-summary-copy-button:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.work-item-summary-editor .work-item-summary-strategy-select {
+	margin-left: auto;
+}
+
+/* Content */
+
+.work-item-summary-editor .work-item-summary-content {
+	flex: 1;
+	min-height: 0;
+}
+
+.work-item-summary-editor .work-item-summary-content .rendered-markdown {
+	line-height: 1.6;
+}
+
+.work-item-summary-editor .work-item-summary-content .rendered-markdown h1 {
+	font-size: 20px;
+	font-weight: 600;
+	margin: 0 0 12px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border));
+}
+
+.work-item-summary-editor .work-item-summary-content .rendered-markdown h2 {
+	font-size: 16px;
+	font-weight: 600;
+	margin: 16px 0 8px;
+}
+
+.work-item-summary-editor .work-item-summary-content .rendered-markdown h3 {
+	font-size: 14px;
+	font-weight: 600;
+	margin: 12px 0 4px;
+}
+
+.work-item-summary-editor .work-item-summary-content .rendered-markdown code {
+	background-color: var(--vscode-textCodeBlock-background);
+	padding: 1px 4px;
+	border-radius: 3px;
+	font-size: 12px;
+}
+
+/* Loading state */
+
+.work-item-summary-editor .work-item-summary-loading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 16px 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+}
+
+/* Empty state */
+
+.work-item-summary-editor .work-item-summary-empty {
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+	padding: 16px 0;
+}

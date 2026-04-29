@@ -25,7 +25,7 @@ import { IQuickInputService } from '../../../../platform/quickinput/common/quick
 import { URI } from '../../../../base/common/uri.js';
 import { IMarkdownRendererService } from '../../../../platform/markdown/browser/markdownRenderer.js';
 import { IWorkItemService } from '../../../services/workItems/common/workItemService.js';
-import { IWorkItem, WorkItemPriority, WorkItemStatus } from '../../../services/workItems/common/workItem.js';
+import { IWorkItem, IWorkItemDiscussion, WorkItemPriority, WorkItemStatus } from '../../../services/workItems/common/workItem.js';
 import { IGitHubService } from '../../github/browser/githubService.js';
 import { IGitHubIssueComment } from '../../github/common/types.js';
 import { WorkItemEditorInput, WORK_ITEM_EDITOR_ID } from './workItemEditorInput.js';
@@ -299,61 +299,175 @@ export class WorkItemDetailEditorPane extends EditorPane {
 	}
 
 	private renderDiscussion(workItem: IWorkItem, disposables: DisposableStore): void {
-		const linked = workItem.linkedIssue.get();
-		if (!linked) {
-			return;
-		}
-
 		const section = DOM.append(this.container, $('.work-item-detail-section'));
 
-		// Section header with refresh button
+		// Section header
 		const sectionHeader = DOM.append(section, $('.work-item-detail-section-header'));
 		DOM.append(sectionHeader, $('span.work-item-detail-section-title')).textContent =
 			localize('workItemDetail.discussion', "Discussion");
 
-		const refreshBtn = DOM.append(sectionHeader, $('button.work-item-detail-refresh-button'));
-		DOM.append(refreshBtn, $('span' + ThemeIcon.asCSSSelector(Codicon.refresh)));
-		DOM.append(refreshBtn, document.createTextNode(localize('workItemDetail.refresh', "Refresh")));
-		disposables.add(DOM.addDisposableListener(refreshBtn, DOM.EventType.CLICK, () => {
-			this.fetchComments(workItem);
-		}));
-
 		const discussionBody = DOM.append(section, $('.work-item-detail-discussion'));
 
-		// Loading indicator
-		const loadingEl = DOM.append(discussionBody, $('.work-item-detail-loading'));
-		DOM.append(loadingEl, $('span' + ThemeIcon.asCSSSelector(Codicon.loading) + '.codicon-modifier-spin'));
-		DOM.append(loadingEl, document.createTextNode(localize('workItemDetail.loading', "Loading comments...")));
+		// --- Local discussions (generated from sessions) ---
+		const localContainer = DOM.append(discussionBody, $('div.work-item-detail-local-discussions'));
+		const localRenderDisposables = disposables.add(new MutableDisposable<DisposableStore>());
 
 		disposables.add(autorun(reader => {
-			const loading = this.isLoadingComments.read(reader);
-			loadingEl.style.display = loading ? '' : 'none';
-		}));
+			const discussions = workItem.discussions.read(reader);
+			DOM.clearNode(localContainer);
+			const localDisp = new DisposableStore();
+			localRenderDisposables.value = localDisp;
 
-		// Comments list
-		const commentsContainer = DOM.append(discussionBody, $('div'));
-		const commentRenderDisposables = disposables.add(new MutableDisposable<DisposableStore>());
-
-		disposables.add(autorun(reader => {
-			const commentList = this.comments.read(reader);
-			const loading = this.isLoadingComments.read(reader);
-			DOM.clearNode(commentsContainer);
-			const commentDisp = new DisposableStore();
-			commentRenderDisposables.value = commentDisp;
-
-			if (commentList.length === 0 && !loading) {
-				const empty = DOM.append(commentsContainer, $('span.work-item-detail-empty-text'));
-				empty.textContent = localize('workItemDetail.noComments', "No comments yet.");
-				return;
-			}
-
-			for (const comment of commentList) {
-				this.renderComment(commentsContainer, comment, commentDisp);
+			for (const discussion of discussions) {
+				this.renderLocalDiscussion(localContainer, workItem, discussion, localDisp);
 			}
 		}));
 
-		// Reply box
-		this.renderReplyBox(section, workItem, disposables);
+		// --- GitHub comments (if linked) ---
+		const linked = workItem.linkedIssue.get();
+		if (linked) {
+			const ghHeader = DOM.append(discussionBody, $('.work-item-detail-gh-section-header'));
+			DOM.append(ghHeader, $('span' + ThemeIcon.asCSSSelector(Codicon.github)));
+			DOM.append(ghHeader, $('span')).textContent =
+				localize('workItemDetail.githubComments', "GitHub Comments");
+
+			const refreshBtn = DOM.append(ghHeader, $('button.work-item-detail-refresh-button'));
+			DOM.append(refreshBtn, $('span' + ThemeIcon.asCSSSelector(Codicon.refresh)));
+			DOM.append(refreshBtn, document.createTextNode(localize('workItemDetail.refresh', "Refresh")));
+			disposables.add(DOM.addDisposableListener(refreshBtn, DOM.EventType.CLICK, () => {
+				this.fetchComments(workItem);
+			}));
+
+			// Loading indicator
+			const loadingEl = DOM.append(discussionBody, $('.work-item-detail-loading'));
+			DOM.append(loadingEl, $('span' + ThemeIcon.asCSSSelector(Codicon.loading) + '.codicon-modifier-spin'));
+			DOM.append(loadingEl, document.createTextNode(localize('workItemDetail.loading', "Loading comments...")));
+
+			disposables.add(autorun(reader => {
+				const loading = this.isLoadingComments.read(reader);
+				loadingEl.style.display = loading ? '' : 'none';
+			}));
+
+			// Comments list
+			const commentsContainer = DOM.append(discussionBody, $('div'));
+			const commentRenderDisposables = disposables.add(new MutableDisposable<DisposableStore>());
+
+			disposables.add(autorun(reader => {
+				const commentList = this.comments.read(reader);
+				const loading = this.isLoadingComments.read(reader);
+				DOM.clearNode(commentsContainer);
+				const commentDisp = new DisposableStore();
+				commentRenderDisposables.value = commentDisp;
+
+				if (commentList.length === 0 && !loading) {
+					const empty = DOM.append(commentsContainer, $('span.work-item-detail-empty-text'));
+					empty.textContent = localize('workItemDetail.noComments', "No comments yet.");
+					return;
+				}
+
+				for (const comment of commentList) {
+					this.renderComment(commentsContainer, comment, commentDisp);
+				}
+			}));
+
+			// Reply box
+			this.renderReplyBox(section, workItem, disposables);
+		}
+	}
+
+	private renderLocalDiscussion(
+		parent: HTMLElement,
+		workItem: IWorkItem,
+		discussion: IWorkItemDiscussion,
+		disposables: DisposableStore,
+	): void {
+		const el = DOM.append(parent, $('.work-item-detail-comment.work-item-detail-local-discussion'));
+
+		// Header
+		const header = DOM.append(el, $('.work-item-detail-comment-header'));
+		DOM.append(header, $('span' + ThemeIcon.asCSSSelector(Codicon.commentDiscussion)));
+		const author = DOM.append(header, $('span.work-item-detail-comment-author'));
+		author.textContent = localize('workItemDetail.generatedSummary', "Generated Summary");
+
+		const time = DOM.append(header, $('span.work-item-detail-comment-time'));
+		time.textContent = fromNow(new Date(discussion.createdAt), true);
+
+		if (discussion.syncedToGitHub) {
+			const syncedBadge = DOM.append(header, $('span.work-item-detail-synced-badge'));
+			DOM.append(syncedBadge, $('span' + ThemeIcon.asCSSSelector(Codicon.check)));
+			DOM.append(syncedBadge, document.createTextNode(localize('workItemDetail.synced', "Synced")));
+		}
+
+		// Body — rendered markdown
+		const body = DOM.append(el, $('.work-item-detail-comment-body'));
+		const md = new MarkdownString(discussion.body, { supportHtml: false });
+		const rendered = this.markdownRendererService.render(md);
+		disposables.add(rendered);
+		body.appendChild(rendered.element);
+
+		// Actions row
+		const actions = DOM.append(el, $('.work-item-detail-discussion-actions'));
+
+		// Edit button — opens editable textarea
+		const editBtn = DOM.append(actions, $('button.work-item-detail-action-button')) as HTMLButtonElement;
+		DOM.append(editBtn, $('span' + ThemeIcon.asCSSSelector(Codicon.edit)));
+		DOM.append(editBtn, document.createTextNode(localize('workItemDetail.edit', "Edit")));
+
+		// Edit container (hidden by default)
+		const editContainer = DOM.append(el, $('.work-item-detail-description-edit'));
+		editContainer.style.display = 'none';
+		const textarea = DOM.append(editContainer, $('textarea.work-item-detail-description-textarea')) as HTMLTextAreaElement;
+		const editActions = DOM.append(editContainer, $('.work-item-detail-reply-actions'));
+		const saveBtn = DOM.append(editActions, $('button.work-item-detail-reply-button')) as HTMLButtonElement;
+		saveBtn.textContent = localize('workItemDetail.save', "Save");
+		const cancelBtn = DOM.append(editActions, $('button.work-item-detail-cancel-button')) as HTMLButtonElement;
+		cancelBtn.textContent = localize('workItemDetail.cancel', "Cancel");
+
+		disposables.add(DOM.addDisposableListener(editBtn, DOM.EventType.CLICK, () => {
+			textarea.value = discussion.body;
+			body.style.display = 'none';
+			actions.style.display = 'none';
+			editContainer.style.display = '';
+			textarea.focus();
+		}));
+
+		disposables.add(DOM.addDisposableListener(saveBtn, DOM.EventType.CLICK, () => {
+			this.workItemService.updateDiscussion(workItem.id, discussion.id, { body: textarea.value });
+			editContainer.style.display = 'none';
+			body.style.display = '';
+			actions.style.display = '';
+		}));
+
+		disposables.add(DOM.addDisposableListener(cancelBtn, DOM.EventType.CLICK, () => {
+			editContainer.style.display = 'none';
+			body.style.display = '';
+			actions.style.display = '';
+		}));
+
+		// Sync to GitHub button (only if linked and not yet synced)
+		const linked = workItem.linkedIssue.get();
+		if (linked && !discussion.syncedToGitHub) {
+			const syncBtn = DOM.append(actions, $('button.work-item-detail-action-button')) as HTMLButtonElement;
+			DOM.append(syncBtn, $('span' + ThemeIcon.asCSSSelector(Codicon.github)));
+			DOM.append(syncBtn, document.createTextNode(localize('workItemDetail.syncToGitHub', "Sync to GitHub")));
+
+			disposables.add(DOM.addDisposableListener(syncBtn, DOM.EventType.CLICK, async () => {
+				syncBtn.disabled = true;
+				try {
+					await this.githubService.createIssueComment(
+						linked.owner,
+						linked.repo,
+						linked.number,
+						discussion.body,
+					);
+					this.workItemService.updateDiscussion(workItem.id, discussion.id, { syncedToGitHub: true });
+					// Refresh GitHub comments to show the new one
+					await this.fetchCommentsAsync(workItem);
+				} catch {
+					syncBtn.disabled = false;
+				}
+			}));
+		}
 	}
 
 	private renderComment(parent: HTMLElement, comment: IGitHubIssueComment, disposables: DisposableStore): void {
