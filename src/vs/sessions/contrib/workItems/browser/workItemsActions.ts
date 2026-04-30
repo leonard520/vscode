@@ -26,6 +26,7 @@ import { WorkItemEditorInput } from './workItemEditorInput.js';
 import { WorkItemSummaryEditorInput } from './workItemSummaryEditorInput.js';
 import { SummaryMode, SummaryTimeRange } from './workItemSummaryGenerator.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IWorkItemSyncService } from './workItemSyncService.js';
 
@@ -713,19 +714,81 @@ registerAction2(class extends Action2 {
 		const workItemService = accessor.get(IWorkItemService);
 		const githubConfigService = accessor.get(IWorkItemGitHubConfigService);
 		const githubService = accessor.get(IGitHubService);
+		const notificationService = accessor.get(INotificationService);
+		const logService = accessor.get(ILogService);
 
-		const repos = await ensureConfiguredRepos(quickInputService, githubConfigService);
-		if (repos.length === 0) {
-			return;
-		}
+		// Collect all work items with a linked GitHub issue so we can sync their status.
+		// This is done before ensureConfiguredRepos so that status sync always runs,
+		// even if the linked repo is not in the configured repos list.
+		const linkedItems: Array<{ item: IWorkItem; owner: string; repo: string; number: number }> = [];
 
-		// Build a set of already-linked issue keys so we can filter them out
+		// Build a set of already-linked issue keys so we can filter them out of the import picker.
 		const linkedKeys = new Set<string>();
 		for (const item of workItemService.getWorkItems()) {
 			const linked = item.linkedIssue.get();
 			if (linked) {
-				linkedKeys.add(`${linked.owner}/${linked.repo}#${linked.number}`);
+				const key = `${linked.owner}/${linked.repo}#${linked.number}`;
+				linkedKeys.add(key);
+				linkedItems.push({ item, owner: linked.owner, repo: linked.repo, number: linked.number });
 			}
+		}
+
+		// Kick off status sync immediately — runs in parallel with the picker flow.
+		// Handles both directions: remote closed → close locally, remote open → reopen locally.
+		// Always bypasses HTTP caching to get the latest state from GitHub.
+		logService.info(`[fetchGitHubIssues] Starting status sync for ${linkedItems.length} linked work item(s)`);
+		const syncPromise = Promise.all(
+			linkedItems.map(async ({ item, owner, repo, number }) => {
+				try {
+					logService.info(`[fetchGitHubIssues] Fetching ${owner}/${repo}#${number} (local status: ${item.status.get()})`);
+					const remoteIssue = await githubService.getIssue(owner, repo, number);
+					logService.info(`[fetchGitHubIssues] Remote state for ${owner}/${repo}#${number}: ${remoteIssue.state}`);
+					const localStatus = item.status.get();
+					if (remoteIssue.state !== 'open' && localStatus === WorkItemStatus.Open) {
+						logService.info(`[fetchGitHubIssues] Closing work item "${item.title.get()}" — remote issue is ${remoteIssue.state}`);
+						workItemService.updateWorkItem(item.id, { status: WorkItemStatus.Closed });
+						return { item, direction: 'closed' as const };
+					} else if (remoteIssue.state === 'open' && localStatus === WorkItemStatus.Closed) {
+						logService.info(`[fetchGitHubIssues] Reopening work item "${item.title.get()}" — remote issue is open`);
+						workItemService.updateWorkItem(item.id, { status: WorkItemStatus.Open });
+						return { item, direction: 'reopened' as const };
+					} else {
+						logService.info(`[fetchGitHubIssues] No change needed for "${item.title.get()}" — local: ${localStatus}, remote: ${remoteIssue.state}`);
+					}
+				} catch (err) {
+					logService.warn(`[fetchGitHubIssues] Failed to fetch ${owner}/${repo}#${number}: ${err}`);
+				}
+				return undefined;
+			})
+		).then(results => results.filter((r): r is { item: IWorkItem; direction: 'closed' | 'reopened' } => r !== undefined));
+
+		const repos = await ensureConfiguredRepos(quickInputService, githubConfigService);
+
+		// If no repos are configured, skip the import picker but still await sync results.
+		if (repos.length === 0) {
+			const syncedItems = await syncPromise;
+			const closedItems = syncedItems.filter(r => r.direction === 'closed');
+			const reopenedItems = syncedItems.filter(r => r.direction === 'reopened');
+
+			if (closedItems.length > 0) {
+				const titles = closedItems.map(r => `"${r.item.title.get()}"`).join(', ');
+				notificationService.info(
+					closedItems.length === 1
+						? localize('workItems.remoteIssueClosed.single', "Work item {0} was automatically closed because its linked GitHub issue has been closed.", titles)
+						: localize('workItems.remoteIssueClosed.multiple', "{0} work items were automatically closed because their linked GitHub issues have been closed: {1}", closedItems.length, titles)
+				);
+			}
+
+			if (reopenedItems.length > 0) {
+				const titles = reopenedItems.map(r => `"${r.item.title.get()}"`).join(', ');
+				notificationService.info(
+					reopenedItems.length === 1
+						? localize('workItems.remoteIssueReopened.single', "Work item {0} was automatically reopened because its linked GitHub issue has been reopened.", titles)
+						: localize('workItems.remoteIssueReopened.multiple', "{0} work items were automatically reopened because their linked GitHub issues have been reopened: {1}", reopenedItems.length, titles)
+				);
+			}
+
+			return;
 		}
 
 		// Show picker immediately with busy state for instant feedback
@@ -776,6 +839,29 @@ registerAction2(class extends Action2 {
 				}
 			}
 		}));
+
+		// Notify user about work items whose status was automatically synced from GitHub
+		const syncedItems = await syncPromise;
+		const closedItems = syncedItems.filter(r => r.direction === 'closed');
+		const reopenedItems = syncedItems.filter(r => r.direction === 'reopened');
+
+		if (closedItems.length > 0) {
+			const titles = closedItems.map(r => `"${r.item.title.get()}"`).join(', ');
+			notificationService.info(
+				closedItems.length === 1
+					? localize('workItems.remoteIssueClosed.single', "Work item {0} was automatically closed because its linked GitHub issue has been closed.", titles)
+					: localize('workItems.remoteIssueClosed.multiple', "{0} work items were automatically closed because their linked GitHub issues have been closed: {1}", closedItems.length, titles)
+			);
+		}
+
+		if (reopenedItems.length > 0) {
+			const titles = reopenedItems.map(r => `"${r.item.title.get()}"`).join(', ');
+			notificationService.info(
+				reopenedItems.length === 1
+					? localize('workItems.remoteIssueReopened.single', "Work item {0} was automatically reopened because its linked GitHub issue has been reopened.", titles)
+					: localize('workItems.remoteIssueReopened.multiple', "{0} work items were automatically reopened because their linked GitHub issues have been reopened: {1}", reopenedItems.length, titles)
+			);
+		}
 
 		const selected = await new Promise<readonly IGitHubIssueImportQuickPickItem[] | undefined>(resolve => {
 			let didAccept = false;
