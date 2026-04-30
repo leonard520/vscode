@@ -587,16 +587,26 @@ export class WorkItemsList extends Disposable {
 			return;
 		}
 
+		// Capture current collapsed state of each section before rebuilding
+		const collapsedState = new Map<string, boolean>();
+		for (const node of this._tree.getNode().children) {
+			const element = node.element;
+			if (element && isSection(element)) {
+				collapsedState.set(element.id, node.collapsed);
+			}
+		}
+
 		const items = this._workItemService.getWorkItems();
 		this._totalCount = items.length;
 		const sections = this._buildSections(items);
 
+		const defaultCollapsed = new Set(['backlog', 'closed']);
 		const children = sections.map(section => ({
 			element: section as WorkItemListElement,
 			children: section.items.map(item => ({
 				element: item as WorkItemListElement,
 			})),
-			collapsed: section.id === 'backlog' || section.id === 'closed',
+			collapsed: collapsedState.get(section.id) ?? defaultCollapsed.has(section.id),
 		}));
 
 		this._tree.setChildren(null, children);
