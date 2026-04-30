@@ -16,6 +16,9 @@ import { ISessionsProvidersService } from '../../../services/sessions/browser/se
 import { autorun } from '../../../../base/common/observable.js';
 import { ISession, ISessionType } from '../../../services/sessions/common/session.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+
+const STORAGE_KEY_SESSION_TYPE = 'sessions.sessionTypePicker.selectedType';
 
 export class SessionTypePicker extends Disposable {
 
@@ -33,8 +36,12 @@ export class SessionTypePicker extends Disposable {
 		@IActionWidgetService private readonly actionWidgetService: IActionWidgetService,
 		@ISessionsManagementService private readonly sessionsManagementService: ISessionsManagementService,
 		@ISessionsProvidersService private readonly sessionsProvidersService: ISessionsProvidersService,
+		@IStorageService private readonly storageService: IStorageService,
 	) {
 		super();
+
+		// Restore previously selected session type from storage
+		this._sessionType = this.storageService.get(STORAGE_KEY_SESSION_TYPE, StorageScope.PROFILE);
 
 		const refresh = (session: ISession | undefined) => {
 			if (session) {
@@ -47,6 +54,7 @@ export class SessionTypePicker extends Disposable {
 					...this._supportedSessionTypes.filter(t => !providerTypeIds.has(t.id)),
 				];
 				this._sessionType = session.sessionType;
+				this.storageService.store(STORAGE_KEY_SESSION_TYPE, session.sessionType, StorageScope.PROFILE, StorageTarget.MACHINE);
 			} else {
 				this._supportedSessionTypes = [];
 				this._allProviderSessionTypes = [];

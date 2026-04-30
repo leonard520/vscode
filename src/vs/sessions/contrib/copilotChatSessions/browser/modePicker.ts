@@ -18,10 +18,13 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { Target } from '../../../../workbench/contrib/chat/common/promptSyntax/promptTypes.js';
 import { AICustomizationManagementCommands } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagement.js';
 import { AICustomizationManagementSection } from '../../../../workbench/contrib/chat/common/aiCustomizationWorkspaceService.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { CopilotChatSessionsProvider } from './copilotChatSessionsProvider.js';
 import { CopilotCLISessionType } from '../../../services/sessions/common/session.js';
+
+const STORAGE_KEY_SELECTED_MODE = 'sessions.modePicker.selectedModeId';
 
 interface IModePickerItem {
 	readonly kind: 'mode';
@@ -60,8 +63,19 @@ export class ModePicker extends Disposable {
 		@ICommandService private readonly commandService: ICommandService,
 		@ISessionsManagementService private readonly sessionsManagementService: ISessionsManagementService,
 		@ISessionsProvidersService private readonly sessionsProvidersService: ISessionsProvidersService,
+		@IStorageService private readonly storageService: IStorageService,
 	) {
 		super();
+
+		// Restore previously selected mode from storage
+		const storedModeId = this.storageService.get(STORAGE_KEY_SELECTED_MODE, StorageScope.PROFILE);
+		if (storedModeId && storedModeId !== ChatMode.Agent.id) {
+			const modes = this._getAvailableModes();
+			const restored = modes.find(m => m.id === storedModeId);
+			if (restored) {
+				this._selectedMode = restored;
+			}
+		}
 
 		this._register(this.chatModeService.onDidChangeChatModes(() => {
 			// Refresh the trigger label when available chat modes change
@@ -213,6 +227,7 @@ export class ModePicker extends Disposable {
 
 	private _selectMode(mode: IChatMode): void {
 		this._selectedMode = mode;
+		this.storageService.store(STORAGE_KEY_SELECTED_MODE, mode.id, StorageScope.PROFILE, StorageTarget.MACHINE);
 		this._updateTriggerLabel();
 		this._onDidChange.fire(mode);
 
