@@ -15,8 +15,10 @@ import { ActionListItemKind, IActionListDelegate, IActionListItem, IActionListOp
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { CopilotChatSessionsProvider } from './copilotChatSessionsProvider.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 
 const PERMISSION_MODE_OPTION_ID = 'permissionMode';
+const STORAGE_KEY_CLAUDE_PERMISSION_MODE = 'sessions.claudePermissionModePicker.selectedModeId';
 
 interface IClaudePermissionModeItem {
 	readonly id: string;
@@ -56,8 +58,15 @@ export class ClaudePermissionModePicker extends Disposable {
 		@IActionWidgetService private readonly actionWidgetService: IActionWidgetService,
 		@ISessionsManagementService private readonly sessionsManagementService: ISessionsManagementService,
 		@ISessionsProvidersService private readonly sessionsProvidersService: ISessionsProvidersService,
+		@IStorageService private readonly storageService: IStorageService,
 	) {
 		super();
+
+		// Restore previously selected permission mode from storage
+		const storedModeId = this.storageService.get(STORAGE_KEY_CLAUDE_PERMISSION_MODE, StorageScope.PROFILE);
+		if (storedModeId && permissionModes.some(m => m.id === storedModeId)) {
+			this._currentModeId = storedModeId;
+		}
 	}
 
 	render(container: HTMLElement): HTMLElement {
@@ -132,6 +141,7 @@ export class ClaudePermissionModePicker extends Disposable {
 
 	private _selectMode(mode: IClaudePermissionModeItem): void {
 		this._currentModeId = mode.id;
+		this.storageService.store(STORAGE_KEY_CLAUDE_PERMISSION_MODE, mode.id, StorageScope.PROFILE, StorageTarget.MACHINE);
 		this._updateTriggerLabel(this._triggerElement);
 
 		const session = this.sessionsManagementService.activeSession.get();
