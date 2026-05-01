@@ -17,6 +17,7 @@ import { Queue } from '../../../../base/common/async.js';
 import { ISession } from '../../../services/sessions/common/session.js';
 import { IWorkItemService } from '../../../services/workItems/common/workItemService.js';
 import { IWorkItem } from '../../../services/workItems/common/workItem.js';
+import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 
 export class WorkspaceFolderManagementContribution extends Disposable implements IWorkbenchContribution {
 
@@ -30,6 +31,7 @@ export class WorkspaceFolderManagementContribution extends Disposable implements
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IWorkspaceEditingService private readonly workspaceEditingService: IWorkspaceEditingService,
 		@IWorkspaceTrustManagementService private readonly workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@IEnvironmentService private readonly environmentService: IEnvironmentService,
 	) {
 		super();
 		this._register(autorun(reader => {
@@ -91,6 +93,14 @@ export class WorkspaceFolderManagementContribution extends Disposable implements
 			return {
 				uri: workingDirectory,
 				name: this.uriIdentityService.extUri.basename(workingDirectory),
+			};
+		}
+
+		if (workItem) {
+			const home = this.environmentService.userHome;
+			return {
+				uri: home,
+				name: this.uriIdentityService.extUri.basename(home),
 			};
 		}
 

@@ -780,6 +780,15 @@ registerAction2(class MarkSessionAsDoneAction extends Action2 {
 			icon: Codicon.check,
 			precondition: ChatContextKeys.requestInProgress.negate(),
 			menu: [{
+				id: Menus.CommandCenter,
+				order: 103,
+				when: ContextKeyExpr.and(
+					IsAuxiliaryWindowContext.negate(),
+					SessionsWelcomeVisibleContext.negate(),
+					IsNewChatSessionContext.negate(),
+					IsActiveSessionArchivedContext.negate()
+				)
+			}, {
 				id: MenuId.ChatEditingSessionChangesToolbar,
 				group: 'navigation',
 				order: 1,

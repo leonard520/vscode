@@ -209,6 +209,16 @@ class NewChatWidget extends Disposable {
 			this._workspacePicker.showPicker();
 			return;
 		}
+
+		// Associate the session with the active work item before sending so
+		// that when sendAndCreateChat clears IsNewChatSessionContext the
+		// work item service's autorun sees the session in its list and does
+		// not reset back to the new-session view.
+		const activeWorkItem = this.workItemService.activeWorkItem.get();
+		if (activeWorkItem) {
+			this.workItemService.addSession(activeWorkItem.id, session.sessionId);
+		}
+
 		try {
 			await this.sessionsManagementService.sendAndCreateChat(session, { query, attachedContext });
 		} catch (e) {

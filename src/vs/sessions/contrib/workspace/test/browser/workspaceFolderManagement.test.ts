@@ -22,6 +22,7 @@ import { IActiveSession, ISessionsManagementService } from '../../../../services
 import { IWorkItem, WorkItemPriority, WorkItemStatus } from '../../../../services/workItems/common/workItem.js';
 import { IWorkItemService } from '../../../../services/workItems/common/workItemService.js';
 import { WorkspaceFolderManagementContribution } from '../../browser/workspaceFolderManagement.js';
+import { IEnvironmentService } from '../../../../../platform/environment/common/environment.js';
 
 function createSession(): IActiveSession {
 	const chat = {
@@ -132,6 +133,7 @@ suite('WorkspaceFolderManagementContribution', () => {
 			}
 			override async setUrisTrust() { }
 		}());
+		instantiationService.stub(IEnvironmentService, { userHome: URI.parse('file:///home/user') });
 
 		disposables.add(instantiationService.createInstance(WorkspaceFolderManagementContribution));
 		await new Promise(resolve => setTimeout(resolve, 0));

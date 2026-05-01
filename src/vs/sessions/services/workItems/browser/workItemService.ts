@@ -676,6 +676,12 @@ export class WorkItemService extends Disposable implements IWorkItemService {
 
 		const sessions = activeWorkItem.sessions.get();
 		if (sessions.length === 0) {
+			const model = this._workItems.get(activeWorkItem.id);
+			if (!model || model.sessionIds.length === 0) {
+				// Only show new session view if the work item truly has no sessions
+				// (not just unresolved legacy sessions waiting to be matched).
+				this._sessionsManagementService.openNewSessionView();
+			}
 			return;
 		}
 
