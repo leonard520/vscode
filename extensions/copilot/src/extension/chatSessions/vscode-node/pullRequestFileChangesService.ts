@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as l10n from '@vscode/l10n';
 import * as vscode from 'vscode';
 import { PullRequestSearchItem } from '../../../platform/github/common/githubAPI';
 import { IOctoKitService } from '../../../platform/github/common/githubService';
@@ -38,7 +37,10 @@ export class PullRequestFileChangesService implements IPullRequestFileChangesSer
 			}
 
 			this.logService.trace(`Fetching PR files from ${repoOwner}/${repoName} for PR #${pullRequest.number}`);
-			const files = await this._octoKitService.getPullRequestFiles(repoOwner, repoName, pullRequest.number, { createIfNone: { detail: l10n.t('Sign in to GitHub to view pull request file changes.') } });
+			// Silent auth: this is invoked while building the chat session list (potentially N times in parallel).
+			// We must not trigger interactive sign-in prompts here; if no permissive session is available we just
+			// skip the diff. Interactive sign-in happens later when the user actually opens a session.
+			const files = await this._octoKitService.getPullRequestFiles(repoOwner, repoName, pullRequest.number, {});
 			this.logService.trace(`Got ${files?.length || 0} files from API`);
 
 			if (!files || files.length === 0) {

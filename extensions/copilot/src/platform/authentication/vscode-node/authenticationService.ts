@@ -15,6 +15,10 @@ import { getAlignedSession, getAnyAuthSession } from './session';
 
 export class AuthenticationService extends BaseAuthenticationService {
 	private _taskSingler = new TaskSingler<AuthenticationSession | undefined>();
+	// Separate singler for interactive (createIfNone) flows so that multiple concurrent callers
+	// asking for the same kind of session at the same time only result in a single sign-in prompt.
+	// `forceNewSession` is intentionally not deduped because its semantics are "force a new prompt".
+	private _interactiveTaskSingler = new TaskSingler<AuthenticationSession | undefined>();
 
 	constructor(
 		@IConfigurationService configurationService: IConfigurationService,
@@ -45,14 +49,12 @@ export class AuthenticationService extends BaseAuthenticationService {
 	override async getGitHubSession(kind: 'permissive' | 'any', options: AuthenticationGetSessionOptions): Promise<AuthenticationSession | undefined> {
 		if (kind === 'permissive') {
 			const func = () => getAlignedSession(this._configurationService, options);
-			// If we are doing an interactive flow, don't use the singler so that we don't get hung up on the user's choice
-			const session = options?.createIfNone || options?.forceNewSession ? await func() : await this._taskSingler.getOrCreate('permissive', func);
+			const session = await this._runWithSingler('permissive', func, options);
 			this._permissiveGitHubSession = session;
 			return session;
 		} else {
 			const func = () => getAnyAuthSession(this._configurationService, options);
-			// If we are doing an interactive flow, don't use the singler so that we don't get hung up on the user's choice
-			const session = options?.createIfNone || options?.forceNewSession ? await func() : await this._taskSingler.getOrCreate('any', func);
+			const session = await this._runWithSingler('any', func, options);
 			this._anyGitHubSession = session;
 			return session;
 		}
@@ -62,10 +64,23 @@ export class AuthenticationService extends BaseAuthenticationService {
 		const adoAuthProviderId = 'microsoft';
 		const adoScopes = ['499b84ac-1321-427f-aa17-267ca6975798/.default', 'offline_access'];
 		const func = async () => await authentication.getSession(adoAuthProviderId, adoScopes, options);
-		// If we are doing an interactive flow, don't use the singler so that we don't get hung up on the user's choice
-		const session = options?.createIfNone || options?.forceNewSession ? await func() : await this._taskSingler.getOrCreate('ado', func);
+		const session = await this._runWithSingler('ado', func, options);
 		this._anyAdoSession = session;
 		return session;
+	}
+
+	private _runWithSingler(key: string, func: () => Promise<AuthenticationSession | undefined>, options?: AuthenticationGetSessionOptions): Promise<AuthenticationSession | undefined> {
+		// `forceNewSession` semantically means "always show a fresh prompt", so it bypasses dedup entirely.
+		if (options?.forceNewSession) {
+			return func();
+		}
+		// Dedupe interactive (createIfNone) requests on a separate singler so that N concurrent callers
+		// only produce a single sign-in prompt. Without this, opening views that fan out into multiple
+		// parallel API calls (e.g. listing cloud sessions) can spawn many duplicate sign-in dialogs.
+		if (options?.createIfNone) {
+			return this._interactiveTaskSingler.getOrCreate(key, func);
+		}
+		return this._taskSingler.getOrCreate(key, func);
 	}
 
 	async getAdoAccessTokenBase64(options?: AuthenticationGetSessionOptions): Promise<string | undefined> {

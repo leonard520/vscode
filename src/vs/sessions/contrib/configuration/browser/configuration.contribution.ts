@@ -50,7 +50,14 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerDefaultCon
 
 		'files.autoSave': 'afterDelay',
 
-		'git.autofetch': true,
+		// Disabled: in the Agents window each chat session can register its own
+		// worktree as a separate git repository. With autofetch enabled, vscode.git
+		// would periodically run `git fetch` against every remote of every repo,
+		// each invocation spawning a `git-credential-manager` process to obtain
+		// credentials. That fans out to dozens of concurrent credential prompts /
+		// processes on startup. Agent workflows fetch explicitly when needed, so
+		// passive background fetching has little value here.
+		'git.autofetch': false,
 		'git.autorefresh': true,
 		'git.branchRandomName.enable': true,
 		'git.detectWorktrees': false,
