@@ -25,6 +25,11 @@ import { KeybindingWeight } from '../../../../platform/keybinding/common/keybind
 import { SessionsView, SessionsViewId } from '../../sessions/browser/views/sessionsView.js';
 import { IsSessionsWindowContext } from '../../../../workbench/common/contextkeys.js';
 import { TerminalContextKeys } from '../../../../workbench/contrib/terminal/common/terminalContextKey.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
+import { Extensions as ViewContainerExtensions, IViewContainersRegistry, IViewDescriptor, IViewsRegistry, WindowEnablement } from '../../../../workbench/common/views.js';
+import { WorkItemsContainerId } from '../../workItems/browser/workItems.contribution.js';
 
 //#region Utilities
 
@@ -310,5 +315,37 @@ registerAction2(class extends Action2 {
 		sessionsView?.focusCustomizations();
 	}
 });
+
+//#endregion
+
+//#region View Registration
+
+/**
+ * Register the AI Customization tree view as a second pane inside the Work Items
+ * sidebar container, so users see both Work Items and Chat Customizations
+ * (agents, skills, instructions, MCP servers) at the same time.
+ *
+ * Collapsed by default to keep Work Items as the primary content; users can
+ * expand and drag items into the chat input to attach them to the next request.
+ */
+const aiCustomizationViewIcon = registerIcon('ai-customization-view-icon', Codicon.sparkle, localize('aiCustomizationViewIcon', 'Icon for the Chat Customizations view.'));
+
+const aiCustomizationViewDescriptor: IViewDescriptor = {
+	id: AI_CUSTOMIZATION_VIEW_ID,
+	name: localize2('chatCustomizations', "Chat Customizations"),
+	containerIcon: aiCustomizationViewIcon,
+	ctorDescriptor: new SyncDescriptor(AICustomizationViewPane),
+	canToggleVisibility: true,
+	canMoveView: true,
+	collapsed: false,
+	order: 10,
+	weight: 70,
+	windowEnablement: WindowEnablement.Sessions,
+};
+
+Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews(
+	[aiCustomizationViewDescriptor],
+	Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).get(WorkItemsContainerId)!
+);
 
 //#endregion

@@ -5,9 +5,12 @@
 
 import './media/aiCustomizationTreeView.css';
 import * as dom from '../../../../base/browser/dom.js';
+import { IDragAndDropData } from '../../../../base/browser/dnd.js';
 import { ActionBar } from '../../../../base/browser/ui/actionbar/actionbar.js';
+import { ElementsDragAndDropData } from '../../../../base/browser/ui/list/listView.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { autorun } from '../../../../base/common/observable.js';
 import { basename, dirname } from '../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -18,12 +21,14 @@ import { IMenuService } from '../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { CodeDataTransfers } from '../../../../platform/dnd/browser/dnd.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { WorkbenchAsyncDataTree } from '../../../../platform/list/browser/listService.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { fillEditorsDragData } from '../../../../workbench/browser/dnd.js';
 import { IViewPaneOptions, ViewPane } from '../../../../workbench/browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../../workbench/common/views.js';
 import { IPromptsService, PromptsStorage, IAgentSkill, IPromptPath } from '../../../../workbench/contrib/chat/common/promptSyntax/service/promptsService.js';
@@ -35,7 +40,7 @@ import { AICustomizationManagementSection } from '../../../../workbench/contrib/
 import { AICustomizationPromptsStorage, BUILTIN_STORAGE } from '../../chat/common/builtinPromptsStorage.js';
 import { AICustomizationManagementEditorInput } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagementEditorInput.js';
 import { AICustomizationManagementEditor } from '../../../../workbench/contrib/chat/browser/aiCustomization/aiCustomizationManagementEditor.js';
-import { IAsyncDataSource, ITreeNode, ITreeRenderer, ITreeContextMenuEvent } from '../../../../base/browser/ui/tree/tree.js';
+import { IAsyncDataSource, ITreeNode, ITreeRenderer, ITreeContextMenuEvent, ITreeDragAndDrop } from '../../../../base/browser/ui/tree/tree.js';
 import { FuzzyScore } from '../../../../base/common/filters.js';
 import { IListVirtualDelegate } from '../../../../base/browser/ui/list/list.js';
 import { IEditorService } from '../../../../workbench/services/editor/common/editorService.js';
@@ -596,6 +601,82 @@ class UnifiedAICustomizationDataSource implements IAsyncDataSource<RootElement, 
 	}
 }
 
+/**
+ * Drag-and-drop controller for the AI Customization tree.
+ *
+ * Allows users to drag file items (skills, agents, instructions, prompts) out of
+ * the tree into surfaces that accept resources — most importantly the chat input,
+ * where dropped items become attachments resolved by `IChatAttachmentResolveService`.
+ *
+ * Only `file` items are draggable; `category`, `group`, and `link` items are not.
+ * The tree itself does not accept drops (read-only data source).
+ */
+class AICustomizationTreeDragAndDrop implements ITreeDragAndDrop<AICustomizationTreeItem> {
+
+	constructor(
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
+	) { }
+
+	getDragURI(element: AICustomizationTreeItem): string | null {
+		if (element.type !== 'file') {
+			return null;
+		}
+		return element.uri.toString();
+	}
+
+	getDragLabel(elements: AICustomizationTreeItem[]): string | undefined {
+		const files = elements.filter((e): e is IAICustomizationFileItem => e.type === 'file');
+		if (files.length === 0) {
+			return undefined;
+		}
+		if (files.length === 1) {
+			return files[0].name;
+		}
+		return String(files.length);
+	}
+
+	onDragStart(data: IDragAndDropData, originalEvent: DragEvent): void {
+		if (!originalEvent.dataTransfer) {
+			return;
+		}
+
+		const elements = (data as ElementsDragAndDropData<AICustomizationTreeItem>).getData?.() ?? [];
+		const fileItems = elements.filter((e): e is IAICustomizationFileItem => e.type === 'file');
+		if (fileItems.length === 0) {
+			return;
+		}
+
+		const resources = fileItems.map(item => item.uri);
+
+		// Apply standard editor drag data (uri-list, internal-uri-list, etc.) so that
+		// the chat input — and any other workbench surface using `extractEditorsDropData`
+		// — can resolve these as resources/attachments.
+		this.instantiationService.invokeFunction((accessor: ServicesAccessor) => {
+			fillEditorsDragData(accessor, resources, originalEvent);
+		});
+
+		// Also expose local file paths via CodeDataTransfers.FILES, mirroring what the
+		// file explorer does, to support cross-window file drag scenarios.
+		const localPaths = resources
+			.filter(r => r.scheme === Schemas.file)
+			.map(r => r.fsPath);
+		if (localPaths.length) {
+			originalEvent.dataTransfer.setData(CodeDataTransfers.FILES, JSON.stringify(localPaths));
+		}
+	}
+
+	onDragOver(): boolean {
+		// Tree is read-only with respect to external drops.
+		return false;
+	}
+
+	drop(): void {
+		// No-op: tree does not accept drops.
+	}
+
+	dispose(): void { }
+}
+
 //#endregion
 
 //#region Unified View Pane
@@ -718,6 +799,7 @@ export class AICustomizationViewPane extends ViewPane {
 						return element.label;
 					},
 				},
+				dnd: this.instantiationService.createInstance(AICustomizationTreeDragAndDrop),
 			}
 		));
 

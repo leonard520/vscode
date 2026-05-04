@@ -27,7 +27,7 @@ import './workItemsActions.js';
 
 const workItemsViewIcon = registerIcon('work-items-icon', Codicon.checklist, localize('workItemsViewIcon', 'Icon for Work Items View'));
 const WORK_ITEMS_VIEW_TITLE = localize2('workItems.view.label', "Work Items");
-const WorkItemsContainerId = 'agentic.workbench.view.workItemsContainer';
+export const WorkItemsContainerId = 'agentic.workbench.view.workItemsContainer';
 
 const workItemsViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: WorkItemsContainerId,
@@ -54,6 +54,9 @@ const workItemsViewDescriptor: IViewDescriptor = {
 	name: WORK_ITEMS_VIEW_TITLE,
 	canToggleVisibility: true,
 	canMoveView: false,
+	collapsed: false,
+	order: 1,
+	weight: 30,
 	ctorDescriptor: new SyncDescriptor(WorkItemsView),
 	windowEnablement: WindowEnablement.Sessions
 };
