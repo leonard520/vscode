@@ -145,6 +145,23 @@ export interface ISessionsProvider {
 	deleteChat(sessionId: string, chatUri: URI): Promise<void>;
 
 	/**
+	 * Archive a single chat within a session. Unlike {@link deleteChat}, this does
+	 * not destroy the underlying chat data — the chat is hidden from the active
+	 * session view but its history is preserved.
+	 * @param sessionId The ID of the session containing the chat to archive.
+	 * @param chatUri The URI of the chat to archive.
+	 */
+	archiveChat(sessionId: string, chatUri: URI): Promise<void>;
+
+	/**
+	 * Unarchive a single chat within a session. Restores a previously archived
+	 * chat back into the visible chat list.
+	 * @param sessionId The ID of the session containing the chat to unarchive.
+	 * @param chatUri The URI of the chat to unarchive.
+	 */
+	unarchiveChat(sessionId: string, chatUri: URI): Promise<void>;
+
+	/**
 	 * Send a request to a session and create a new chat with the response.
 	 * @param sessionId The ID of the session to send the request to.
 	 * @param options Options for the request, including the query and any attached context entries.

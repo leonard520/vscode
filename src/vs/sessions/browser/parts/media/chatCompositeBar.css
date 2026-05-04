@@ -92,3 +92,43 @@
 	background-color: var(--vscode-toolbar-hoverBackground);
 	color: var(--chat-tab-active-foreground);
 }
+
+/* Archived tab: dim the label so it reads as inactive at a glance. */
+.chat-composite-bar-tab.archived .chat-composite-bar-tab-label {
+	opacity: 0.6;
+	font-style: italic;
+}
+
+/* Restore button on archived tabs is always visible (not hover-gated) so the user can tell how to restore. */
+.chat-composite-bar-tab.archived .chat-composite-bar-tab-actions .action-label {
+	opacity: 1;
+}
+
+/* Show Archived toggle: a small icon button at the right end of the bar. */
+.chat-composite-bar-show-archived {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	margin-left: 4px;
+	border-radius: 4px;
+	color: var(--chat-tab-inactive-foreground);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.chat-composite-bar-show-archived:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	color: var(--chat-tab-active-foreground);
+}
+
+.chat-composite-bar-show-archived.active {
+	color: var(--chat-tab-active-foreground);
+	background-color: color-mix(in srgb, var(--vscode-agentsPanel-foreground, var(--vscode-foreground)) 5%, transparent);
+}
+
+.chat-composite-bar-show-archived:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}

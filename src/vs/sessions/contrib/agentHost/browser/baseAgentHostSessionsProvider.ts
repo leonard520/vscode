@@ -714,6 +714,14 @@ export abstract class BaseAgentHostSessionsProvider extends Disposable implement
 		// Agent host sessions don't support deleting individual chats
 	}
 
+	async archiveChat(_sessionId: string, _chatUri: URI): Promise<void> {
+		// Agent host sessions don't support archiving individual chats
+	}
+
+	async unarchiveChat(_sessionId: string, _chatUri: URI): Promise<void> {
+		// Agent host sessions don't support unarchiving individual chats
+	}
+
 	addChat(_sessionId: string): IChat {
 		throw new Error('Multiple chats per session is not supported for agent host sessions');
 	}

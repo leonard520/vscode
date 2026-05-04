@@ -115,8 +115,14 @@ export interface ISessionsManagementService {
 	/**
 	 * Create a new session for the given workspace.
 	 * Delegates to the provider identified by providerId.
+	 *
+	 * The optional `onBeforeActivate` callback runs after the provider has
+	 * created the session but before it becomes the active session. Callers
+	 * can use this hook to register the session with other services (e.g.,
+	 * associating it with a work item) so that observers see consistent
+	 * state on the first autorun fired by the activation.
 	 */
-	createNewSession(providerId: string, workspaceUri: URI, sessionTypeId?: string): ISession;
+	createNewSession(providerId: string, workspaceUri: URI, sessionTypeId?: string, onBeforeActivate?: (session: ISession) => void): ISession;
 
 	/**
 	 * Unset the new session
@@ -150,6 +156,14 @@ export interface ISessionsManagementService {
 	deleteSession(session: ISession): Promise<void>;
 	/** Delete a single chat from a session by its URI. */
 	deleteChat(session: ISession, chatUri: URI): Promise<void>;
+	/**
+	 * Archive a single chat from a session by its URI. Unlike
+	 * {@link deleteChat}, this preserves the chat history and only hides the
+	 * chat from the active session view.
+	 */
+	archiveChat(session: ISession, chatUri: URI): Promise<void>;
+	/** Unarchive a previously archived chat from a session by its URI. */
+	unarchiveChat(session: ISession, chatUri: URI): Promise<void>;
 	/** Rename a chat within a session. */
 	renameChat(session: ISession, chatUri: URI, title: string): Promise<void>;
 }

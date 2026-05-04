@@ -1459,6 +1459,55 @@ export class CopilotChatSessionsProvider extends Disposable implements ISessions
 		throw new Error('Renaming is not supported for this session type');
 	}
 
+	async archiveChat(sessionId: string, chatUri: URI): Promise<void> {
+		await this._setChatArchived(sessionId, chatUri, true);
+	}
+
+	async unarchiveChat(sessionId: string, chatUri: URI): Promise<void> {
+		await this._setChatArchived(sessionId, chatUri, false);
+	}
+
+	private async _setChatArchived(sessionId: string, chatUri: URI, archived: boolean): Promise<void> {
+		const session = this._findSession(sessionId);
+		if (!session?.capabilities.supportsMultipleChats) {
+			throw new Error('Archiving individual chats is not supported when multi-chat is disabled');
+		}
+
+		const chatIds = this._getChatIdsInGroup(sessionId);
+		if (archived && chatIds.length <= 1) {
+			// Only one chat in the group — archive the whole session.
+			return this.archiveSession(sessionId);
+		}
+
+		const chatId = chatIds.find(id => {
+			const chat = this._sessionCache.get(this._localIdFromchatId(id));
+			return chat && chat.resource.toString() === chatUri.toString();
+		});
+		if (!chatId) {
+			return;
+		}
+
+		const agentSession = this._findAgentSession(chatId);
+		if (agentSession) {
+			agentSession.setArchived(archived);
+		} else {
+			// Untitled chat (not yet committed) — toggle archive in-place
+			const chat = this._findChatSession(chatId);
+			if (chat && isNewSession(chat)) {
+				chat.setArchived(archived);
+			}
+		}
+
+		// Notify the parent group so the chats observable re-evaluates and
+		// ChatCompositeBar updates which chats are visible.
+		this._onDidGroupMembershipChange.fire({ sessionId });
+		const primaryChatId = chatIds[0];
+		const primaryChat = this._sessionCache.get(this._localIdFromchatId(primaryChatId));
+		if (primaryChat) {
+			this._onDidChangeSessions.fire({ added: [], removed: [], changed: [this._chatToSession(primaryChat)] });
+		}
+	}
+
 	async deleteChat(sessionId: string, chatUri: URI): Promise<void> {
 		const session = this._findSession(sessionId);
 
@@ -1498,6 +1547,13 @@ export class CopilotChatSessionsProvider extends Disposable implements ISessions
 			}
 
 			await this._deleteAgentSessions([agentSession]);
+
+			// Invalidate caches so the UI reflects the removal even if the
+			// backend change event is delayed. _refreshSessionCache reconciles
+			// the session cache and fires the appropriate change events for
+			// the parent group.
+			this._sessionGroupCache.delete(sessionId);
+			this._refreshSessionCache();
 		} else {
 			// Untitled chat (not yet committed) - clean up directly
 			const chat = this._findChatSession(chatId);

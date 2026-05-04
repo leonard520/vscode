@@ -31,12 +31,16 @@ interface IChatTab {
  * A composite bar that displays chats within the active agent session as tabs.
  * Selecting a tab loads that chat in the chat view pane instead of switching view containers.
  *
- * The bar auto-hides when there is only one chat in the active session and shows when there are multiple.
+ * Visibility:
+ * - Hidden when there are 0 or 1 visible chats AND no archived chats.
+ * - Visible when there are 2+ chats, OR when at least one chat is archived
+ *   (so the user can always reach the "Show Archived" toggle to restore them).
  */
 export class ChatCompositeBar extends Disposable {
 
 	private readonly _container: HTMLElement;
 	private readonly _tabsContainer: HTMLElement;
+	private readonly _showArchivedButton: HTMLElement;
 	private readonly _tabs: IChatTab[] = [];
 	private readonly _tabDisposables = this._register(new DisposableStore());
 
@@ -44,6 +48,7 @@ export class ChatCompositeBar extends Disposable {
 	readonly onDidChangeVisibility: Event<boolean> = this._onDidChangeVisibility.event;
 
 	private _visible = false;
+	private _showArchived = false;
 
 	get element(): HTMLElement {
 		return this._container;
@@ -65,18 +70,45 @@ export class ChatCompositeBar extends Disposable {
 		this._tabsContainer = $('.chat-composite-bar-tabs');
 		this._container.appendChild(this._tabsContainer);
 
+		this._showArchivedButton = $('.chat-composite-bar-show-archived');
+		this._showArchivedButton.setAttribute('role', 'button');
+		this._showArchivedButton.tabIndex = 0;
+		this._container.appendChild(this._showArchivedButton);
+		this._updateShowArchivedButton();
+		this._register(addDisposableListener(this._showArchivedButton, EventType.CLICK, () => this._toggleShowArchived()));
+		this._register(addDisposableListener(this._showArchivedButton, EventType.KEY_DOWN, (e: KeyboardEvent) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				this._toggleShowArchived();
+			}
+		}));
+
 		// Track active session changes
 		this._register(autorun(reader => {
 			const activeSession = this._sessionsManagementService.activeSession.read(reader);
 			if (!activeSession) {
-				this._rebuildTabs([], '', undefined);
+				this._rebuildTabs([], 0, '', undefined);
 				return;
 			}
 
-			const chats = activeSession.chats.read(reader);
+			const allChats = activeSession.chats.read(reader);
+			const activeChats: IChat[] = [];
+			let archivedCount = 0;
+			for (const chat of allChats) {
+				if (chat.isArchived.read(reader)) {
+					archivedCount++;
+				} else {
+					activeChats.push(chat);
+				}
+			}
+
+			// When the toggle is on, show all chats (active + archived) so the
+			// user can pick an archived one to restore. Otherwise only show
+			// active (non-archived) chats.
+			const visibleChats = this._showArchived ? allChats : activeChats;
 			const activeChatUri = activeSession.activeChat.read(reader)?.resource.toString() ?? '';
 			const mainChatUri = activeSession.mainChat.resource.toString();
-			this._rebuildTabs(chats, activeChatUri, mainChatUri);
+			this._rebuildTabs(visibleChats, archivedCount, activeChatUri, mainChatUri);
 		}));
 
 		// Scroll active tab into view on resize
@@ -88,7 +120,47 @@ export class ChatCompositeBar extends Disposable {
 		this._register(this._themeService.onDidColorThemeChange(() => this._updateStyles()));
 	}
 
-	private _rebuildTabs(chats: readonly IChat[], activeChatId: string, mainChatId?: string): void {
+	private _toggleShowArchived(): void {
+		this._showArchived = !this._showArchived;
+		this._updateShowArchivedButton();
+
+		// Force re-render from the current state.
+		const activeSession = this._sessionsManagementService.activeSession.get();
+		if (!activeSession) {
+			this._rebuildTabs([], 0, '', undefined);
+			return;
+		}
+		const allChats = activeSession.chats.get();
+		const activeChats: IChat[] = [];
+		let archivedCount = 0;
+		for (const chat of allChats) {
+			if (chat.isArchived.get()) {
+				archivedCount++;
+			} else {
+				activeChats.push(chat);
+			}
+		}
+		const visibleChats = this._showArchived ? allChats : activeChats;
+		const activeChatUri = activeSession.activeChat.get()?.resource.toString() ?? '';
+		const mainChatUri = activeSession.mainChat.resource.toString();
+		this._rebuildTabs(visibleChats, archivedCount, activeChatUri, mainChatUri);
+	}
+
+	private _updateShowArchivedButton(): void {
+		this._showArchivedButton.classList.toggle('active', this._showArchived);
+		const label = this._showArchived
+			? localize('chatCompositeBar.hideArchived', "Hide Archived Chats")
+			: localize('chatCompositeBar.showArchived', "Show Archived Chats");
+		this._showArchivedButton.title = label;
+		this._showArchivedButton.setAttribute('aria-label', label);
+		this._showArchivedButton.setAttribute('aria-pressed', String(this._showArchived));
+		reset(this._showArchivedButton);
+		const icon = $(ThemeIcon.asCSSSelector(Codicon.archive));
+		(icon as HTMLElement).style.pointerEvents = 'none';
+		this._showArchivedButton.appendChild(icon);
+	}
+
+	private _rebuildTabs(chats: readonly IChat[], archivedCount: number, activeChatId: string, mainChatId?: string): void {
 		this._tabDisposables.clear();
 		this._tabs.length = 0;
 		reset(this._tabsContainer);
@@ -98,7 +170,18 @@ export class ChatCompositeBar extends Disposable {
 		}
 
 		this._updateActiveTab(activeChatId);
-		this._updateVisibility();
+		this._updateShowArchivedButtonVisibility(archivedCount);
+		this._updateVisibility(chats.length, archivedCount);
+	}
+
+	private _updateShowArchivedButtonVisibility(archivedCount: number): void {
+		this._showArchivedButton.style.display = archivedCount > 0 ? '' : 'none';
+		// Reset the toggle when nothing is archived so a fresh archive doesn't
+		// land in the unexpected "showing archived" state.
+		if (archivedCount === 0 && this._showArchived) {
+			this._showArchived = false;
+			this._updateShowArchivedButton();
+		}
 	}
 
 	private _createTab(chat: IChat, isMainChat: boolean): void {
@@ -113,24 +196,52 @@ export class ChatCompositeBar extends Disposable {
 		}));
 		tab.appendChild(labelEl);
 
-		// Track untitled state for styling (dirty dot + close button)
+		// Track untitled / archived state for styling.
 		this._tabDisposables.add(autorun(reader => {
 			const status = chat.status.read(reader);
 			tab.classList.toggle('untitled', status === SessionStatus.Untitled);
 		}));
+		this._tabDisposables.add(autorun(reader => {
+			tab.classList.toggle('archived', chat.isArchived.read(reader));
+		}));
 
-		// Remove action bar — only for non-main chats, visible on hover
-		if (!isMainChat) {
-			const closeAction = this._tabDisposables.add(new Action(
-				'chatCompositeBar.closeChat',
-				localize('closeChat', "Close"),
-				ThemeIcon.asClassName(Codicon.close),
+		// Action button: archived chats get a restore button; non-main, non-archived
+		// chats get an archive (X) button. The main chat is never archivable.
+		if (chat.isArchived.get()) {
+			const restoreAction = this._tabDisposables.add(new Action(
+				'chatCompositeBar.unarchiveChat',
+				localize('unarchiveChat', "Restore Chat"),
+				ThemeIcon.asClassName(Codicon.discard),
 				true,
 				async () => {
 					const session = this._sessionsManagementService.activeSession.get();
 					if (session) {
-						await this._sessionsManagementService.deleteChat(session, chat.resource);
+						await this._sessionsManagementService.unarchiveChat(session, chat.resource);
 					}
+				},
+			));
+			const actionBar = this._tabDisposables.add(new ActionBar(tab, { actionViewItemProvider: undefined }));
+			actionBar.push(restoreAction, { icon: true, label: false });
+			actionBar.getContainer().classList.add('chat-composite-bar-tab-actions');
+		} else if (!isMainChat) {
+			const closeAction = this._tabDisposables.add(new Action(
+				'chatCompositeBar.archiveChat',
+				localize('archiveChat', "Archive Chat"),
+				ThemeIcon.asClassName(Codicon.close),
+				true,
+				async () => {
+					const session = this._sessionsManagementService.activeSession.get();
+					if (!session) {
+						return;
+					}
+					// If the chat being archived is currently active, switch
+					// to the main chat first so the chat view doesn't keep
+					// showing an archived (and now-hidden) chat.
+					const activeChatUri = session.activeChat.get()?.resource;
+					if (activeChatUri && activeChatUri.toString() === chat.resource.toString()) {
+						await this._sessionsManagementService.openChat(session, session.mainChat.resource);
+					}
+					await this._sessionsManagementService.archiveChat(session, chat.resource);
 				},
 			));
 			const actionBar = this._tabDisposables.add(new ActionBar(tab, { actionViewItemProvider: undefined }));
@@ -210,10 +321,11 @@ export class ChatCompositeBar extends Disposable {
 		activeTab?.element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 	}
 
-	private _updateVisibility(): void {
-		// Show when there are multiple sessions, hide when there is only one (or none)
+	private _updateVisibility(visibleTabCount: number, archivedCount: number): void {
+		// Show when there are multiple chat tabs to switch between, OR when
+		// any chat is archived (so the "Show Archived" toggle is reachable).
 		const wasVisible = this._visible;
-		this._visible = this._tabs.length > 1;
+		this._visible = visibleTabCount > 1 || archivedCount > 0;
 		this._container.style.display = this._visible ? '' : 'none';
 		if (wasVisible !== this._visible) {
 			this._onDidChangeVisibility.fire(this._visible);

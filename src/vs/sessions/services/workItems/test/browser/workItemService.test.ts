@@ -161,7 +161,8 @@ suite('WorkItemService', () => {
 				return [...sessions];
 			}
 
-			override createNewSession(): ISession {
+			override createNewSession(_providerId: string, _workspaceUri: URI, _sessionTypeId?: string, onBeforeActivate?: (session: ISession) => void): ISession {
+				onBeforeActivate?.(pendingSession);
 				return pendingSession;
 			}
 
@@ -229,7 +230,7 @@ suite('WorkItemService', () => {
 		assert.deepStrictEqual(openedSessions, [secondSession]);
 	});
 
-	test('createSessionForWorkItem preserves multiple pending sessions on the active work item', async () => {
+	test('createSessionForWorkItem replaces an existing untitled pending session on the active work item', async () => {
 		const instantiationService = disposables.add(new TestInstantiationService());
 		const sessionsChanged = disposables.add(new Emitter<ISessionsChangeEvent>());
 		const sessionReplaced = disposables.add(new Emitter<ISessionReplaceEvent>());
@@ -249,9 +250,10 @@ suite('WorkItemService', () => {
 				return [...sessions];
 			}
 
-			override createNewSession(): ISession {
+			override createNewSession(_providerId: string, _workspaceUri: URI, _sessionTypeId?: string, onBeforeActivate?: (session: ISession) => void): ISession {
 				const session = pendingSessions.shift();
 				assert.ok(session);
+				onBeforeActivate?.(session);
 				return session;
 			}
 
@@ -271,9 +273,12 @@ suite('WorkItemService', () => {
 
 		const resolvedWorkItem = service.getWorkItem(workItem.id);
 		assert.ok(resolvedWorkItem);
+		// The previous untitled pending session (temp-2) is replaced by the
+		// new one (temp-3) so the SessionTabBar does not accumulate ghost
+		// tabs for sessions that the provider already disposed.
 		assert.deepStrictEqual(
 			resolvedWorkItem.sessions.get().map(session => session.sessionId),
-			['committed-1', 'temp-2', 'temp-3']
+			['committed-1', 'temp-3']
 		);
 	});
 

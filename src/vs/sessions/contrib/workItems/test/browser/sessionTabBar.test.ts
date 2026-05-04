@@ -82,6 +82,7 @@ function createWorkItem(id: string, sessions: readonly ISession[]): IWorkItem {
 		createdAt: new Date(),
 		updatedAt: observableValue(`workItem.updatedAt.${id}`, new Date()),
 		sessions: observableValue(`workItem.sessions.${id}`, sessions),
+		discussions: observableValue(`workItem.discussions.${id}`, []),
 	};
 }
 
@@ -295,9 +296,10 @@ suite('Sessions - SessionTabBar', () => {
 				return [...sessions];
 			}
 
-			override createNewSession(): ISession {
+			override createNewSession(_providerId: string, _workspaceUri: URI, _sessionTypeId?: string, onBeforeActivate?: (session: ISession) => void): ISession {
 				const session = pendingSessions.shift();
 				assert.ok(session);
+				onBeforeActivate?.(session);
 				activeSessionObservable.set(session as IActiveSession, undefined);
 				return session;
 			}
@@ -330,5 +332,61 @@ suite('Sessions - SessionTabBar', () => {
 			[...parent.querySelectorAll('.session-tab-title')].map(element => element.textContent),
 			['Session 1', 'New Session']
 		);
+	});
+
+	test('marks the newly created session as the active tab when adding via the WorkItemService', async () => {
+		const instantiationService = store.add(new TestInstantiationService());
+		const sessions: ISession[] = [];
+		const pendingSessions = [createUntitledSession('pending-2')];
+		const activeSessionObservable = observableValue<IActiveSession | undefined>('activeSession', undefined);
+
+		instantiationService.stub(IStorageService, store.add(new InMemoryStorageService()));
+		instantiationService.stub(IContextKeyService, new MockContextKeyService());
+		instantiationService.stub(ILogService, new NullLogService());
+		instantiationService.stub(ISessionsManagementService, new class extends mock<ISessionsManagementService>() {
+			override readonly onDidChangeSessions = Event.None;
+			override readonly onDidReplaceSession = Event.None;
+			override readonly onDidChangeSessionTypes = Event.None;
+			override readonly activeSession = activeSessionObservable;
+			override readonly activeProviderId = observableValue('activeProviderId', 'test-provider');
+
+			override getSessions(): ISession[] {
+				return [...sessions];
+			}
+
+			override createNewSession(_providerId: string, _workspaceUri: URI, _sessionTypeId?: string, onBeforeActivate?: (session: ISession) => void): ISession {
+				const session = pendingSessions.shift();
+				assert.ok(session);
+				onBeforeActivate?.(session);
+				activeSessionObservable.set(session as IActiveSession, undefined);
+				return session;
+			}
+
+			override async openSession(session: ISession | URI): Promise<void> {
+				const nextSession = URI.isUri(session)
+					? sessions.find(candidate => candidate.resource.toString() === session.toString())
+					: session;
+				activeSessionObservable.set(nextSession as IActiveSession | undefined, undefined);
+			}
+		}());
+
+		const workItemService = store.add(instantiationService.createInstance(WorkItemService));
+		instantiationService.stub(IWorkItemService, workItemService);
+
+		const firstSession = createSession('1');
+		sessions.push(firstSession);
+
+		const workItem = workItemService.createWorkItem({ title: 'Active tab regression' });
+		workItemService.addSession(workItem.id, firstSession.sessionId);
+		workItemService.setActiveWorkItem(workItem.id);
+		activeSessionObservable.set(firstSession as IActiveSession, undefined);
+
+		const bar = store.add(instantiationService.createInstance(SessionTabBar, parent));
+		await workItemService.createSessionForWorkItem(workItem.id);
+
+		const activeTabs = [...parent.querySelectorAll('.session-tab.active .session-tab-title')]
+			.map(element => element.textContent);
+		assert.strictEqual(bar.visible, true);
+		assert.deepStrictEqual(activeTabs, ['New Session']);
 	});
 });

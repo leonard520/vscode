@@ -14,7 +14,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { bindContextKey } from '../../../../platform/observable/common/platformObservableUtils.js';
 import { ActiveWorkItemHasLinkedIssueContext, ActiveWorkItemHasWorkingDirectoryContext, ActiveWorkItemPriorityContext, ActiveWorkItemSessionCountContext, ActiveWorkItemStatusContext, HasActiveWorkItemContext, IsNewChatSessionContext } from '../../../common/contextkeys.js';
-import { ISession } from '../../sessions/common/session.js';
+import { ISession, SessionStatus } from '../../sessions/common/session.js';
 import { ISessionsManagementService } from '../../sessions/common/sessionsManagement.js';
 import { ILinkedGitHubIssue, IWorkItem, IWorkItemData, IWorkItemDiscussion, WorkItemPriority, WorkItemStatus } from '../common/workItem.js';
 import { IWorkItemChangeEvent, IWorkItemCreateData, IWorkItemService, IWorkItemUpdateData } from '../common/workItemService.js';
@@ -389,12 +389,23 @@ export class WorkItemService extends Disposable implements IWorkItemService {
 			throw new Error('No active sessions provider');
 		}
 
+		// If the work item already references an untitled pending session that
+		// has not been committed by the provider yet, drop it so the new
+		// session replaces it. Otherwise repeated "+" clicks would leave
+		// disposed pending sessions behind, inflating the session count and
+		// adding ghost tabs to the SessionTabBar.
+		this._removeUncommittedPendingSessions(model);
+
 		const workingDir = model.workingDirectory.get();
 		const workspaceUri = workingDir ?? URI.from({ scheme: 'untitled', path: '/' });
 
-		const session = this._sessionsManagementService.createNewSession(providerId, workspaceUri);
-		this._pendingSessions.set(session.sessionId, session);
-		this.addSession(workItemId, session.sessionId);
+		// Associate the new session with the work item before it becomes active
+		// so that observers (e.g., SessionTabBar) see workItem.sessions and
+		// activeSession in a consistent state on the activation autorun.
+		const session = this._sessionsManagementService.createNewSession(providerId, workspaceUri, undefined, created => {
+			this._pendingSessions.set(created.sessionId, created);
+			this.addSession(workItemId, created.sessionId);
+		});
 
 		return session;
 	}
@@ -516,6 +527,48 @@ export class WorkItemService extends Disposable implements IWorkItemService {
 		}
 
 		model.sessions.set(resolved, undefined);
+	}
+
+	/**
+	 * Drop pending sessions for the work item that have not yet been sent.
+	 *
+	 * The provider only tracks one in-flight new session at a time and
+	 * disposes the previous one when a new {@link createNewSession} call
+	 * arrives. Without cleanup, the previous reference remains in
+	 * {@link _pendingSessions} and {@link WorkItemModel.sessionIds},
+	 * inflating the visible session count and leaving orphan tabs in the
+	 * SessionTabBar.
+	 */
+	private _removeUncommittedPendingSessions(model: WorkItemModel): void {
+		const allSessions = this._sessionsManagementService.getSessions();
+		const allSessionIds = new Set(allSessions.map(s => s.sessionId));
+
+		const toRemove: string[] = [];
+		for (const sessionId of model.sessionIds) {
+			if (allSessionIds.has(sessionId)) {
+				// Already committed by the provider — keep it.
+				continue;
+			}
+			const pending = this._pendingSessions.get(sessionId);
+			if (!pending) {
+				// Legacy reference waiting to be reconciled — leave it alone.
+				continue;
+			}
+			if (pending.status.get() !== SessionStatus.Untitled) {
+				// Pending session was sent (status moved past Untitled), keep it.
+				continue;
+			}
+			toRemove.push(sessionId);
+		}
+
+		if (toRemove.length === 0) {
+			return;
+		}
+
+		for (const sessionId of toRemove) {
+			model.removeSessionId(sessionId);
+			this._pendingSessions.delete(sessionId);
+		}
 	}
 
 	private _reconcilePersistedLegacySessionsForItem(model: WorkItemModel, allSessions: readonly ISession[]): void {

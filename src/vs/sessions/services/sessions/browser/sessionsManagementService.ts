@@ -287,7 +287,7 @@ class SessionsManagementService extends Disposable implements ISessionsManagemen
 		this.setActiveSession(undefined);
 	}
 
-	createNewSession(providerId: string, repositoryUri: URI, sessionTypeId?: string): ISession {
+	createNewSession(providerId: string, repositoryUri: URI, sessionTypeId?: string, onBeforeActivate?: (session: ISession) => void): ISession {
 		if (!this.isNewChatSessionContext.get()) {
 			this.isNewChatSessionContext.set(true);
 		}
@@ -305,6 +305,10 @@ class SessionsManagementService extends Disposable implements ISessionsManagemen
 		}
 		const session = provider.createNewSession(repositoryUri, sessionTypeId);
 		this._pendingNewSession = session;
+		// Allow callers to register the session before it becomes active so the
+		// initial activation autorun observes the session in places like the
+		// active work item's session list.
+		onBeforeActivate?.(session);
 		this.setActiveSession(session);
 		return session;
 	}
@@ -550,6 +554,14 @@ class SessionsManagementService extends Disposable implements ISessionsManagemen
 
 	async deleteChat(session: ISession, chatUri: URI): Promise<void> {
 		await this._getProvider(session)?.deleteChat(session.sessionId, chatUri);
+	}
+
+	async archiveChat(session: ISession, chatUri: URI): Promise<void> {
+		await this._getProvider(session)?.archiveChat(session.sessionId, chatUri);
+	}
+
+	async unarchiveChat(session: ISession, chatUri: URI): Promise<void> {
+		await this._getProvider(session)?.unarchiveChat(session.sessionId, chatUri);
 	}
 
 	async renameChat(session: ISession, chatUri: URI, title: string): Promise<void> {
